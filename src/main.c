@@ -151,7 +151,7 @@ void error_loop(const char *message) {
     }
 }
 
-void fota_demo_task(void *pvParameter) {
+void getting_started_task(void *pvParameter) {
 
     quarklink_return_t ql_ret;
     quarklink_return_t ql_status = QUARKLINK_ERROR;
@@ -258,7 +258,7 @@ void app_main(void)
 {
 
     printf("\n quarklink-getting_started esp32-c3 0.1.0*\n");
-    set_led();
+    set_led(); // esp32-c3 RGB LED
 
     /* quarklink init */
     ESP_LOGI(QL_TAG, "Initialising QuarkLink");
@@ -274,5 +274,5 @@ void app_main(void)
     wifi_init_sta();
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 
-    xTaskCreate(&fota_demo_task, "fota_demo_task", 1024 * 8, NULL, 5, NULL);
+    xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 8, NULL, 5, NULL);
 }
