@@ -1,108 +1,16 @@
-// Include FreeRTOS for delay
-#include <string.h>
 #include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include "esp_chip_info.h" // for chip info
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
-#include "esp_flash.h"
-
 #include "esp_wifi.h"
-
-#include <string.h>
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_event.h"
 #include "esp_log.h"
-#include "esp_ota_ops.h"
-#include "esp_http_client.h"
 #include "esp_https_ota.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-
-#include "lwip/err.h"
-#include "lwip/sys.h"
-
-#include "driver/uart.h"
-#include "driver/gpio.h"
-
-#include "mbedtls/base64.h"
 
 #include "quarklink.h"
 #include "led_strip.h"
 
-quarklink_context_t quarklink;
-
-/** UART 
- * \brief The protocol adopted for serial communication is described in the README.
- * 
- */
-
-/* The request type */
-typedef enum {
-    QUARKLINK_ROOT_CA   = 1,
-    QUARKLINK_ENDPOINT  = 2,
-    QUARKLINK_PORT      = 3,
-    WIFI_SSID           = 4,
-    WIFI_PASSWORD       = 5,
-    DEVICE_ID           = 6,
-} ief_data_t;
-
-/* The IEF data messages */
-static const char* IEF_QL_ROOT_CA    = "ql_rootCA";
-static const char* IEF_QL_ENDPOINT   = "ql_endpoint";
-static const char* IEF_QL_PORT       = "ql_port";
-static const char* IEF_WIFI_SSID     = "wifi_ssid";
-static const char* IEF_WIFI_PASSWORD = "wifi_password";
-static const char* IEF_DEVICE_ID     = "deviceID";
-
-/* UART pin configuration - leave the pins unchanged as we are using the USB serial */
-#define IEF_UART_TX     (UART_PIN_NO_CHANGE)
-#define IEF_UART_RX     (UART_PIN_NO_CHANGE)
-#define IEF_UART_RTS    (UART_PIN_NO_CHANGE)
-#define IEF_UART_CTS    (UART_PIN_NO_CHANGE)
-
-/* UART configuration */
-#define IEF_UART_PORT_NUM   0           // USB is on UART0
-#define IEF_UART_BAUD_RATE  115200      // Use 115200 as default baudrate
-#define UART_BUF_SIZE       1024        // The largest data we receive is the quarklink root CA certificate, encoded in base64 (~700 bytes)
-
-/* Global buffer used for uart communications */
-static char uartBuffer[UART_BUF_SIZE];
-/*************************************/
-
-/** WI-FI
- * \brief Most of the wi-fi stuff is taken from the example at https://github.com/espressif/esp-idf/tree/master/examples/wifi/getting_started/station
- * We could simplify it if we don't want to support all of the configurations.
- */
-#if CONFIG_ESP_WPA3_SAE_PWE_HUNT_AND_PECK
-#define ESP_WIFI_SAE_MODE WPA3_SAE_PWE_HUNT_AND_PECK
-#define EXAMPLE_H2E_IDENTIFIER ""
-#elif CONFIG_ESP_WPA3_SAE_PWE_HASH_TO_ELEMENT
-#define ESP_WIFI_SAE_MODE WPA3_SAE_PWE_HASH_TO_ELEMENT
-#define EXAMPLE_H2E_IDENTIFIER CONFIG_ESP_WIFI_PW_ID
-#elif CONFIG_ESP_WPA3_SAE_PWE_BOTH
-#define ESP_WIFI_SAE_MODE WPA3_SAE_PWE_BOTH
-#define EXAMPLE_H2E_IDENTIFIER CONFIG_ESP_WIFI_PW_ID
-#endif
-#if CONFIG_ESP_WIFI_AUTH_OPEN
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_OPEN
-#elif CONFIG_ESP_WIFI_AUTH_WEP
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WEP
-#elif CONFIG_ESP_WIFI_AUTH_WPA_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA2_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA_WPA2_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA_WPA2_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA3_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA3_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA2_WPA3_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_WPA3_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WAPI_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WAPI_PSK
-#endif
-
+/* LED Strip */
+#define LED_STRIP_BLINK_GPIO  8 // GPIO assignment
+#define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
+#define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -113,26 +21,13 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static const char *TAG = "wifi station";
-
 static int s_retry_num = 0;
 
-/** IEF
- * \brief Other IEF stuff
- * 
- */
-
-/* Task size */
-#define IEF_TASK_STACK_SIZE (1024 * 8)
-
-// Delay between status requests, in ms
-#define IEF_STATUS_REQUEST_INTERVAL 10000
-
-// Tag for logs
+static const char *TAG = "wifi station";
 static const char *IEF_TAG = "IEF";
-static const char *WIFI_TAG = "WiFi";
+static const char *QL_TAG = "QL";
 
-/*************************************/
+quarklink_context_t quarklink;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -187,98 +82,6 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-// Send a IEF start message, return -1 error, 0 success
-static int send_ief_start() {
-    static const char IEF_START_MESSAGE[] = "IEF DATA\n";
-
-    // Send the message
-    int ret = uart_write_bytes(IEF_UART_PORT_NUM, IEF_START_MESSAGE, sizeof(IEF_START_MESSAGE));
-    if (ret != sizeof(IEF_START_MESSAGE))
-        return -1;
-    else 
-        return 0;
-}
-
-/**
- * \brief Send a UART IEF data message. The function formats the packet according to the protocol defined in this file.
- * 
- * \param reqType       the request type
- * \param payload       the payload to send as a null-terminated string, NULL if no payload
- * \param buffer        the buffer that will contain the response as a null-terminated string
- * \param bufsize       the size of buffer
- * \return              the length of the response, -1 if failed
- */
-static int send_ief_data(ief_data_t reqType, const char *payload, char *buffer, size_t bufsize) {
-    if (send_ief_start() != 0) {
-        return -1;
-    }
-
-    switch (reqType) {
-        case QUARKLINK_ROOT_CA: {
-            strcpy(uartBuffer, IEF_QL_ROOT_CA);
-            break;
-        }
-        case QUARKLINK_ENDPOINT: {
-            strcpy(uartBuffer, IEF_QL_ENDPOINT);
-            break;
-        }
-        case QUARKLINK_PORT: {
-            strcpy(uartBuffer, IEF_QL_PORT);
-            break;
-        }
-        case WIFI_SSID: {
-            strcpy(uartBuffer, IEF_WIFI_SSID);
-            break;
-        }
-        case WIFI_PASSWORD: {
-            strcpy(uartBuffer, IEF_WIFI_PASSWORD);
-            break;
-        }
-        case DEVICE_ID: {
-            strcpy(uartBuffer, IEF_DEVICE_ID);
-            strcat(uartBuffer, ":");
-            strcat(uartBuffer, payload);
-            break;
-        }
-    }
-
-    // Add new line
-    strcat(uartBuffer, "\n");
-
-    // Send the packet
-    uart_write_bytes(IEF_UART_PORT_NUM, uartBuffer, strlen(uartBuffer));
-
-    // Wait for the response
-    int len = 0;
-    while (!len) {
-        len = uart_read_bytes(IEF_UART_PORT_NUM, buffer, bufsize, 100 / portTICK_PERIOD_MS);
-        // TODO add a timeout ?
-
-    }
-    // Replace \n with end of string
-    buffer[len] = '\0';
-    return len;
-}
-
-/**
- * Format the packet and send a request of type reqType over UART, saves the response in buffer.
- * return length of response, -1 if error
-*/
-static int send_ief_request(ief_data_t reqType, char *buffer, size_t bufsize) {
-    return send_ief_data(reqType, NULL, buffer, bufsize);
-}
-
-/* Read user's response. Ignore every char after the 1st */
-char read_user_response() {
-    int len = 0;
-    while (!len) {
-        len = uart_read_bytes(IEF_UART_PORT_NUM, uartBuffer, sizeof(UART_BUF_SIZE), 100 / portTICK_PERIOD_MS);
-    }
-    uartBuffer[len] = '\0';
-    ESP_LOGD(IEF_TAG, "Read: %s", uartBuffer);
-    return (char) uartBuffer[0];
-}
-
 void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
@@ -324,11 +127,11 @@ void wifi_init_sta(void)
     /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
      * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-                 wifi_config.sta.ssid, wifi_config.sta.password);
+        ESP_LOGI(TAG, "connected to ap SSID:%s",
+                 wifi_config.sta.ssid);
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
-                 wifi_config.sta.ssid, wifi_config.sta.password);
+        ESP_LOGI(TAG, "Failed to connect to SSID:%s",
+                 wifi_config.sta.ssid);
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
@@ -341,7 +144,7 @@ void wifi_init_sta(void)
 
 void error_loop(const char *message) {
     if (message != NULL) {
-        ESP_LOGE(TAG, "%s", message);
+        ESP_LOGE(QL_TAG, "%s", message);
     }
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -351,27 +154,26 @@ void error_loop(const char *message) {
 void fota_demo_task(void *pvParameter) {
 
     quarklink_return_t ql_ret;
-
     quarklink_return_t ql_status = QUARKLINK_ERROR;
     while (1) {
         /* get status */
-        ESP_LOGI(TAG, "Get status");
+        ESP_LOGI(QL_TAG, "Get status");
         ql_status = quarklink_status(&quarklink);
         switch (ql_status) {
             case QUARKLINK_STATUS_ENROLLED:
-                ESP_LOGI(TAG, "Enrolled");
+                ESP_LOGI(QL_TAG, "Enrolled");
                 break;
             case QUARKLINK_STATUS_FWUPDATE_REQUIRED:
-                ESP_LOGI(TAG, "Firmware Update required");
+                ESP_LOGI(QL_TAG, "Firmware Update required");
                 break;
             case QUARKLINK_STATUS_NOT_ENROLLED:
-                ESP_LOGI(TAG, "Not enrolled");
+                ESP_LOGI(QL_TAG, "Not enrolled");
                 break;
             case QUARKLINK_STATUS_CERTIFICATE_EXPIRED:
-                ESP_LOGI(TAG, "Certificate expired");
+                ESP_LOGI(QL_TAG, "Certificate expired");
                 break;
             case QUARKLINK_STATUS_REVOKED:
-                ESP_LOGI(TAG, "Device revoked");
+                ESP_LOGI(QL_TAG, "Device revoked");
                 break;
             default:
                 error_loop("Error during status request");
@@ -381,17 +183,17 @@ void fota_demo_task(void *pvParameter) {
             ql_status == QUARKLINK_STATUS_CERTIFICATE_EXPIRED ||
             ql_status == QUARKLINK_STATUS_REVOKED) {
             /* enroll */
-            ESP_LOGI(TAG, "Enrol to %s", quarklink.endpoint);
+            ESP_LOGI(QL_TAG, "Enrol to %s", quarklink.endpoint);
             ql_ret = quarklink_enrol(&quarklink);
             switch (ql_ret) {
                 case QUARKLINK_SUCCESS:
-                    ESP_LOGI(TAG, "Successfully enrolled!");
+                    ESP_LOGI(QL_TAG, "Successfully enrolled!");
                     break;
                 case QUARKLINK_DEVICE_DOES_NOT_EXIST:
-                    ESP_LOGW(TAG, "Device does not exist");
+                    ESP_LOGW(QL_TAG, "Device does not exist");
                     break;
                 case QUARKLINK_DEVICE_REVOKED:
-                    ESP_LOGW(TAG, "Device revoked");
+                    ESP_LOGW(QL_TAG, "Device revoked");
                     break;
                 case QUARKLINK_CACERTS_ERROR:
                 default:
@@ -401,42 +203,31 @@ void fota_demo_task(void *pvParameter) {
    
         if (ql_status == QUARKLINK_STATUS_FWUPDATE_REQUIRED) {
             /* firmware update */
-            ESP_LOGI(TAG, "Get firmware update");
+            ESP_LOGI(QL_TAG, "Get firmware update");
             ql_ret = quarklink_firmwareUpdate(&quarklink, NULL);
             switch (ql_ret) {
                 case QUARKLINK_FWUPDATE_UPDATED:
-                    ESP_LOGI(TAG, "Firmware updated. Rebooting...");
+                    ESP_LOGI(QL_TAG, "Firmware updated. Rebooting...");
                     esp_restart();
                     break;
                 case QUARKLINK_FWUPDATE_NO_UPDATE:
-                    ESP_LOGI(TAG, "No firmware update");
+                    ESP_LOGI(QL_TAG, "No firmware update");
                     break;
                 case QUARKLINK_FWUPDATE_WRONG_SIGNATURE:
-                    ESP_LOGI(TAG, "Wrong firmware signature");
+                    ESP_LOGI(QL_TAG, "Wrong firmware signature");
                     break;
                 case QUARKLINK_FWUPDATE_MISSING_SIGNATURE:
-                    ESP_LOGI(TAG, "Missing required firmware signature");
+                    ESP_LOGI(QL_TAG, "Missing required firmware signature");
                     break;
                 case QUARKLINK_FWUPDATE_ERROR:
                 default:
                     error_loop("error while updating firmware");
             }
         }
-
         vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
 
 }
-
-// GPIO assignment
-#define LED_STRIP_BLINK_GPIO  8
-
-// LED numbers in the strip
-#define LED_STRIP_LED_NUMBERS 1
-
-// 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
-#define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000)
-
 
 void set_led(void){
 
@@ -459,10 +250,6 @@ void set_led(void){
         .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
     };
     led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
-    
-
-    led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
-
     led_strip_set_pixel(led_strip, 0, 0, 0, 255);
     led_strip_refresh(led_strip);
 }
@@ -470,19 +257,18 @@ void set_led(void){
 void app_main(void)
 {
 
-    printf("**** New Version esp32-ql-binary-simple-demo esp32 c3 debug TEST 4.03 Secure ***\n");
-
+    printf("\n quarklink-getting_started esp32-c3 0.1.0*\n");
     set_led();
 
     /* quarklink init */
-    ESP_LOGI(TAG, "Initialising QuarkLink");
+    ESP_LOGI(QL_TAG, "Initialising QuarkLink");
     quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 6000, "");
     // TODO calling quarklink init will initialise the key at the first boot. init will be called again to update URL, PORT, ROOTCA
     ql_ret = quarklink_loadStoredContext(&quarklink);
     if (ql_ret != QUARKLINK_SUCCESS) {
         printf("ql_ret %d\n", ql_ret);
     }
-    ESP_LOGI(TAG, "Device ID: %s", quarklink.deviceID);
+    ESP_LOGI(QL_TAG, "Device ID: %s", quarklink.deviceID);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
