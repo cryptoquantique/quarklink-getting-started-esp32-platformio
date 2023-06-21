@@ -1,5 +1,5 @@
 .pio
 .vscode
 build
-lib/*.a
 sdkconfig.*
+dependencies.lock
