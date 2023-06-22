@@ -20,7 +20,7 @@ PlatformIO Core, version 6.1.7
 
 To build the project use the ```pio run``` command:
 ```
-pio run
+>pio run
 Processing esp32c3 (board: esp32-c3-devkitm-1; platform: espressif32 @^6.0.0; framework: espidf)
 ------------------------------------------------------------------------------------------------------------------------
 Verbose mode can be enabled via `-v, --verbose` option
