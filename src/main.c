@@ -228,26 +228,26 @@ void wifi_init_sta(void)
                                                         &event_handler,
                                                         NULL,
                                                         &instance_got_ip));
-    wifi_config_t wifi_config;   // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    //wifi_config_t wifi_config;   // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
     
-    // // HARD_CODED CLAUDIA
-    // wifi_config_t wifi_config = {
-    //     .sta = {
-    //         .ssid = "vodafone4BAA80",
-    //         .password = "Pr2YgfcAfmM9fYCn",
-    //         /* Setting a password implies station will connect to all security modes including WEP/WPA.
-    //          * However these modes are deprecated and not advisable to be used. Incase your Access point
-    //          * doesn't support WPA2, these mode can be enabled by commenting below line */
-	//      .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-    //     },
-    // }; //HARD_CODED CLAUDIA
+    // HARD_CODED CLAUDIA
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = "vodafone4BAA80",
+            .password = "Pr2YgfcAfmM9fYCn",
+            /* Setting a password implies station will connect to all security modes including WEP/WPA.
+             * However these modes are deprecated and not advisable to be used. Incase your Access point
+             * doesn't support WPA2, these mode can be enabled by commenting below line */
+	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+        },
+    }; //HARD_CODED CLAUDIA
 
 
     // /* Load existing configuration and prompt user */
-    esp_wifi_get_config(WIFI_IF_STA, &wifi_config); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    //esp_wifi_get_config(WIFI_IF_STA, &wifi_config); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
 
-    // ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //HARD_CODED CLAUDIA
-    // ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) ); //HARD_CODED CLAUDIA
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //HARD_CODED CLAUDIA
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) ); //HARD_CODED CLAUDIA
 
     ESP_ERROR_CHECK(esp_wifi_start() );
 
@@ -418,13 +418,13 @@ void app_main(void)
 
     /* quarklink init */
     ESP_LOGI(QL_TAG, "Initialising QuarkLink");
-    //quarklink_return_t ql_ret = quarklink_init(&quarklink, CQ_ENDPOINT, 6000, CQ_GATEWAY_CERT); //HARD_CODED CLAUDIA
-    quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 6000, ""); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    //TODO calling quarklink init will initialise the key at the first boot. init will be called again to update URL, PORT, ROOTCA
-    ql_ret = quarklink_loadStoredContext(&quarklink); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    if (ql_ret != QUARKLINK_SUCCESS) { // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-        printf("ql_ret %d\n", ql_ret); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    } // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    quarklink_return_t ql_ret = quarklink_init(&quarklink, CQ_ENDPOINT, 6000, CQ_GATEWAY_CERT); //HARD_CODED CLAUDIA
+    // quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 6000, ""); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    // TODO calling quarklink init will initialise the key at the first boot. init will be called again to update URL, PORT, ROOTCA
+    // ql_ret = quarklink_loadStoredContext(&quarklink); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    // if (ql_ret != QUARKLINK_SUCCESS) { // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    //     printf("ql_ret %d\n", ql_ret); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    // } // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
     ESP_LOGI(QL_TAG, "Device ID: %s", quarklink.deviceID);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
