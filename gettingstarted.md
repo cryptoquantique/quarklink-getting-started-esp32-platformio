@@ -1,26 +1,31 @@
-Quarklink Getting Started
+# Quarklink Getting Started
 
 This guide shows how to to setup a secure IoT device with Quarklink.
 
 You will need an ESP32, such as C3 or S3 or M5 Edukit, and a Quarklink instance.
 
-1. Sign in to Quarklink
+### Note: 
+After you follow these steps the device is permanently configured to use secure boot. There is no going back to being an unsecure device and the device can only be updated with firmware signed by the key you have defined in the Quarklink HSM. 
 
-2. Create a Provisioning Task
+Follow these steps to set up your device with secure boot, encrypted flash memory, and for signed firmware updates.
 
-3. Run the Provisioning Task
+1. Create a Provisioning Task
 
-4. Upload your Firmware to Quarklink
+The Provisioning Task defines the configuration for a secure device including the boot loader details and the initial firmware which configures the device with its Root-of-Trust and provisions it with its Quarklink details.
 
-5. Associate the firmware to the device batch
+2. Run the Provisioning Task
 
-6. Thats it!
+Running the Provision Task connects to an actual device and configures it to be secure.    
 
-## Sign in to Quarklink
+3. Upload your Firmware to Quarklink and associate it with a batch of devices
+
+Thats it!
+
+## First sign up for a Quarklink instance and log on
 
 Go to the [Quarklink Signup page](https://signup.quarklink.io] to create your Quarklink instance and then logon to your instance:
 
-![image](https://github.com/cryptoquantique/quarklink-getting-started/assets/12925578/b9ecc6a0-79a2-4b55-a070-ba1703e99008)
+![image](https://github.com/cryptoquantique/quarklink-getting-started/assets/12925578/b9ecc6a0-79a2-4b55-a070-ba1703e99008 | width=100px)
 
 ![image](https://github.com/cryptoquantique/quarklink-getting-started/assets/12925578/55add17d-518b-4fa6-9e5d-455a9456c8f3)
 
@@ -59,4 +64,4 @@ Go to the [Quarklink Signup page](https://signup.quarklink.io] to create your Qu
 
 ## Thats it!
 
-
+![image](https://github.com/cryptoquantique/quarklink-getting-started/assets/12925578/65d749ef-0e78-496c-9c49-36345ccce55b)
