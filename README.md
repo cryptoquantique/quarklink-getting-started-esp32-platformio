@@ -6,6 +6,8 @@ You use Quarklink to provision the ESP32 with a secure bootloader and Quarklink'
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated with firmware signed by a key from the Quarklink Hardware Security Module (HSM).
 
+See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
+
 ## Pre-built binaries
 
 To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries) 
