@@ -198,6 +198,55 @@ void mqtt_app_start(void *pvParameter)
 
 }
 
+int mqtt_init(void){
+
+    static bool is_running = false;
+    
+    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
+
+    if(is_running == true){
+        return 0;
+    }
+
+    quarklink_return_t ret = quarklink_getDeviceKey(&quarklink,deviceKey,QUARKLINK_MAX_KEY_LENGTH);
+    if (ret != QUARKLINK_SUCCESS){
+        ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
+        return -1;
+    }
+
+    const esp_mqtt_client_config_t mqtt_cfg = {
+        .broker = {
+            .address.hostname = quarklink.iotHubEndpoint,
+            .address.port = quarklink.iotHubPort,
+            .address.transport = MQTT_TRANSPORT_OVER_SSL,
+            .verification.certificate = quarklink.iotHubRootCert
+        },
+        .credentials ={
+            .client_id = quarklink.deviceID,
+            .authentication = {
+                .certificate= quarklink.deviceCert,
+                .key = deviceKey,
+            }
+        }
+    };
+
+    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
+    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    if (client == NULL){
+        return -1;
+    }
+    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    if (esp_mqtt_client_start(client) == ESP_OK) {
+        is_running = true;
+        return 0;
+    }
+    else {
+        is_running = false;
+        return -1;
+    }
+}
+
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -340,6 +389,11 @@ void getting_started_task(void *pvParameter) {
         switch (ql_status) {
             case QUARKLINK_STATUS_ENROLLED:
                 ESP_LOGI(QL_TAG, "Enrolled");
+                // if Enrollement context was not stroed force  a new Enroll
+                if (strcmp(quarklink.iotHubEndpoint,"") == 0){
+                    ql_status = QUARKLINK_STATUS_NOT_ENROLLED;
+                }
+                ESP_LOGI(QL_TAG, "endpoint %s", quarklink.iotHubEndpoint);
                 break;
             case QUARKLINK_STATUS_FWUPDATE_REQUIRED:
                 ESP_LOGI(QL_TAG, "Firmware Update required");
@@ -366,6 +420,10 @@ void getting_started_task(void *pvParameter) {
             switch (ql_ret) {
                 case QUARKLINK_SUCCESS:
                     ESP_LOGI(QL_TAG, "Successfully enrolled!");
+                    ql_ret = quarklink_persistEnrolmentContext(&quarklink);
+                    if (ql_ret != QUARKLINK_SUCCESS){
+                        ESP_LOGW(QL_TAG, "Failed to store the Enrolment context");
+                    }
                     break;
                 case QUARKLINK_DEVICE_DOES_NOT_EXIST:
                     ESP_LOGW(QL_TAG, "Device does not exist");
@@ -379,8 +437,6 @@ void getting_started_task(void *pvParameter) {
             }
         }
         
-                    
-   
         if (ql_status == QUARKLINK_STATUS_FWUPDATE_REQUIRED) {
             /* firmware update */
             ESP_LOGI(QL_TAG, "Get firmware update");
@@ -403,6 +459,12 @@ void getting_started_task(void *pvParameter) {
                 default:
                     error_loop("error while updating firmware");
             }
+        }
+        
+
+        if (ql_status == QUARKLINK_STATUS_ENROLLED)
+        {
+            mqtt_init();
         }
         vTaskDelay(20000 / portTICK_PERIOD_MS);
     }
@@ -460,20 +522,20 @@ void app_main(void)
 
     /* quarklink init */
     ESP_LOGI(QL_TAG, "Initialising QuarkLink");
-    quarklink_return_t ql_ret = quarklink_init(&quarklink, CQ_ENDPOINT, 6000, CQ_GATEWAY_CERT); //HARD_CODED CLAUDIA
-    //quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 6000, ""); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    //TODO calling quarklink init will initialise the key at the first boot. init will be called again to update URL, PORT, ROOTCA
-    // ql_ret = quarklink_loadStoredContext(&quarklink); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    // if (ql_ret != QUARKLINK_SUCCESS) { // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    //     printf("ql_ret %d\n", ql_ret); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    // } // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
+    quarklink_return_t ql_ret = quarklink_init(&quarklink, CQ_ENDPOINT, 6000, CQ_GATEWAY_CERT);
+    ql_ret = quarklink_loadStoredContext(&quarklink);
+    if (ql_ret != QUARKLINK_SUCCESS || ql_ret != QUARKLINK_CONTEXT_NO_ENROLMENT_INFO_STORED) {
+        ESP_LOGE(QL_TAG, "ql_ret %d\n", ql_ret);
+    }
+    else if (ql_ret == QUARKLINK_CONTEXT_NO_CREDENTIALS_STORED || ql_ret != QUARKLINK_CONTEXT_NOTHING_STORED) {
+        ESP_LOGE(QL_TAG, "ql_ret %d\n", ql_ret);
+        strcpy(quarklink.endpoint, CQ_ENDPOINT);
+        strcpy(quarklink.rootCert, CQ_GATEWAY_CERT);   
+    }
     ESP_LOGI(QL_TAG, "Device ID: %s", quarklink.deviceID);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
-    xTaskCreate(&mqtt_app_start, "mqtt_app_start", 1024 * 8, NULL, 5, NULL);
-
-
-    //xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 8, NULL, 5, NULL);
+    xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 8, NULL, 5, NULL);
 }
