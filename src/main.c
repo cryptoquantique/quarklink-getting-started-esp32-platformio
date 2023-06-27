@@ -136,13 +136,53 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-static void mqtt_app_start(void)
+void error_loop(const char *message) {
+    if (message != NULL) {
+        ESP_LOGE(QL_TAG, "%s", message);
+    }
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void mqtt_app_start(void *pvParameter)
 {
+    quarklink_return_t ql_ret = quarklink_enrol(&quarklink);
+    switch (ql_ret) {
+        case QUARKLINK_SUCCESS:
+            ESP_LOGI(QL_TAG, "Successfully enrolled!");
+            break;
+        case QUARKLINK_DEVICE_DOES_NOT_EXIST:
+            ESP_LOGW(QL_TAG, "Device does not exist");
+            break;
+        case QUARKLINK_DEVICE_REVOKED:
+            ESP_LOGW(QL_TAG, "Device revoked");
+            break;
+        case QUARKLINK_CACERTS_ERROR:
+        default:
+            error_loop("Error during enrol");
+    }
+    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
+    
+    quarklink_return_t ret = quarklink_getDeviceKey(&quarklink,deviceKey,QUARKLINK_MAX_KEY_LENGTH);
+    if (ret != QUARKLINK_SUCCESS){
+        ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
+    }
+
     const esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
-            .address.uri = "mqtts://aqjjhlxf7iuc2-ats.iot.eu-west-2.amazonaws.com:8883",
+            .address.hostname = quarklink.iotHubEndpoint,
+            .address.port = quarklink.iotHubPort,
+            .address.transport = MQTT_TRANSPORT_OVER_SSL,
             .verification.certificate = quarklink.iotHubRootCert
         },
+        .credentials ={
+            .client_id = quarklink.deviceID,
+            .authentication = {
+                .certificate= quarklink.deviceCert,
+                .key = deviceKey,
+            }
+        }
     };
 
     ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
@@ -150,6 +190,12 @@ static void mqtt_app_start(void)
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(client);
+
+    while(1){
+        ESP_LOGE(TAG, "**********Here we will be publishing ***************");
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+    };
+
 }
 
 
@@ -281,14 +327,7 @@ void wifi_init_sta(void)
     vEventGroupDelete(s_wifi_event_group);
 }
 
-void error_loop(const char *message) {
-    if (message != NULL) {
-        ESP_LOGE(QL_TAG, "%s", message);
-    }
-    while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
+
 
 void getting_started_task(void *pvParameter) {
 
@@ -432,28 +471,9 @@ void app_main(void)
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
 
-    ql_ret = quarklink_enrol(&quarklink);
-    switch (ql_ret) {
-        case QUARKLINK_SUCCESS:
-            ESP_LOGI(QL_TAG, "Successfully enrolled!");
-            break;
-        case QUARKLINK_DEVICE_DOES_NOT_EXIST:
-            ESP_LOGW(QL_TAG, "Device does not exist");
-            break;
-        case QUARKLINK_DEVICE_REVOKED:
-            ESP_LOGW(QL_TAG, "Device revoked");
-            break;
-        case QUARKLINK_CACERTS_ERROR:
-        default:
-            error_loop("Error during enrol");
-    }
+    xTaskCreate(&mqtt_app_start, "mqtt_app_start", 1024 * 8, NULL, 5, NULL);
 
-    while(1){
-        mqtt_app_start();
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-    }
 
     //xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 8, NULL, 5, NULL);
 }
