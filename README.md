@@ -1,10 +1,8 @@
 # Quarklink Getting Started
 
-This project shows how to get started with Quarklink to make a secure IoT device using an ESP32.
+This project shows an exmaple of get started with Quarklink to make a secure IoT device using an ESP32.
 
-You use Quarklink to provision the ESP32 with a secure bootloader and Quarklink's Initial Enrolment Firmware (IEF) and then do secure Firmware-Over-The-Air(FOTA) updates so the device is running the code in this project. 
-
-The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated with firmware signed by a key from the Quarklink Hardware Security Module (HSM).
+The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the Quarklink Hardware Security Module (HSM).
 
 See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
 
@@ -49,4 +47,4 @@ The build will create a firmware binary file within the .pio directory:
 firmware.bin
 ```
 
-That ```firmware.bin``` file what you upload to Quarklink.
+That ```firmware.bin``` file is what you upload to Quarklink.
