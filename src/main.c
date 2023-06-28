@@ -34,36 +34,7 @@ static const char *MQTT_TAG = "mqtt event handler";
 
 quarklink_context_t quarklink;
 
-// #
-// # MQTT Example Configuration
-// #
-const char *CONFIG_BROKER_URI = "mqtts://mqtt.eclipseprojects.io:8883";
-// CONFIG_BROKER_CERTIFICATE_OVERRIDE=""
 int CONFIG_BROKER_BIN_SIZE_TO_SEND = 20000;
-// # end of MQTT Example Configuration
-
-#if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
-static const uint8_t mqtt_eclipseprojects_io_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
-#else
-extern const uint8_t mqtt_eclipseprojects_io_pem_start[]   asm("_binary_mqtt_eclipseprojects_io_pem_start");
-#endif
-extern const uint8_t mqtt_eclipseprojects_io_pem_end[]   asm("_binary_mqtt_eclipseprojects_io_pem_end");
-
-//
-// Note: this function is for testing purposes only publishing part of the active partition
-//       (to be checked against the original binary)
-//
-static void send_binary(esp_mqtt_client_handle_t client)
-{
-    esp_partition_mmap_handle_t out_handle;
-    const void *binary_address;
-    const esp_partition_t *partition = esp_ota_get_running_partition();
-    esp_partition_mmap(partition, 0, partition->size, ESP_PARTITION_MMAP_DATA, &binary_address, &out_handle);
-    // sending only the configured portion of the partition (if it's less than the partition size)
-    int binary_size = MIN(CONFIG_BROKER_BIN_SIZE_TO_SEND, partition->size);
-    int msg_id = esp_mqtt_client_publish(client, "/topic/binary", binary_address, binary_size, 0, 0);
-    ESP_LOGI(TAG, "binary sent with msg_id=%d", msg_id);
-}
 
 /*
  * @brief Event handler registered to receive MQTT events
@@ -77,21 +48,18 @@ static void send_binary(esp_mqtt_client_handle_t client)
  */
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
-    ESP_LOGD(MQTT_TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
+    ESP_LOGI(MQTT_TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_CONNECTED");
+        msg_id = esp_mqtt_client_publish(client, "/topic/qos1", "MQTT_EVENT_CONNECTED", 0, 1, 0);
+        ESP_LOGI(MQTT_TAG, "sent publish successful, msg_id=%d", msg_id);
+
         msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
         ESP_LOGI(MQTT_TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-        msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
-        ESP_LOGI(MQTT_TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-        msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
-        ESP_LOGI(MQTT_TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_DISCONNECTED");
@@ -99,7 +67,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
     case MQTT_EVENT_SUBSCRIBED:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-        msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "data", 0, 0, 0);
+        msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "MQTT_EVENT_SUBSCRIBED", 0, 0, 0);
         ESP_LOGI(MQTT_TAG, "sent publish successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
@@ -112,10 +80,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
-        if (strncmp(event->data, "send binary please", event->data_len) == 0) {
-            ESP_LOGI(MQTT_TAG, "Sending the binary");
-            send_binary(client);
-        }
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_ERROR");
@@ -129,6 +93,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         } else {
             ESP_LOGW(MQTT_TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
         }
+        break;
+    case MQTT_EVENT_BEFORE_CONNECT:
+        ESP_LOGI(MQTT_TAG, "MQTT_EVENT_BEFORE_CONNECT");
         break;
     default:
         ESP_LOGI(MQTT_TAG, "Other event id:%d", event->event_id);
@@ -145,75 +112,19 @@ void error_loop(const char *message) {
     }
 }
 
-void mqtt_app_start(void *pvParameter)
-{
-    quarklink_return_t ql_ret = quarklink_enrol(&quarklink);
-    switch (ql_ret) {
-        case QUARKLINK_SUCCESS:
-            ESP_LOGI(QL_TAG, "Successfully enrolled!");
-            break;
-        case QUARKLINK_DEVICE_DOES_NOT_EXIST:
-            ESP_LOGW(QL_TAG, "Device does not exist");
-            break;
-        case QUARKLINK_DEVICE_REVOKED:
-            ESP_LOGW(QL_TAG, "Device revoked");
-            break;
-        case QUARKLINK_CACERTS_ERROR:
-        default:
-            error_loop("Error during enrol");
-    }
-    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
-    
-    quarklink_return_t ret = quarklink_getDeviceKey(&quarklink,deviceKey,QUARKLINK_MAX_KEY_LENGTH);
-    if (ret != QUARKLINK_SUCCESS){
-        ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
-    }
-
-    const esp_mqtt_client_config_t mqtt_cfg = {
-        .broker = {
-            .address.hostname = quarklink.iotHubEndpoint,
-            .address.port = quarklink.iotHubPort,
-            .address.transport = MQTT_TRANSPORT_OVER_SSL,
-            .verification.certificate = quarklink.iotHubRootCert
-        },
-        .credentials ={
-            .client_id = quarklink.deviceID,
-            .authentication = {
-                .certificate= quarklink.deviceCert,
-                .key = deviceKey,
-            }
-        }
-    };
-
-    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    esp_mqtt_client_start(client);
-
-    while(1){
-        ESP_LOGE(TAG, "**********Here we will be publishing ***************");
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-    };
-
-}
-
-int mqtt_init(void){
+int mqtt_init(esp_mqtt_client_handle_t* client){
 
     static bool is_running = false;
-    
-    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
-
-    if(is_running == true){
+    if (is_running == true) {
         return 0;
     }
+    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
 
     quarklink_return_t ret = quarklink_getDeviceKey(&quarklink,deviceKey,QUARKLINK_MAX_KEY_LENGTH);
     if (ret != QUARKLINK_SUCCESS){
         ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
-        return -1;
     }
-
+    
     const esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address.hostname = quarklink.iotHubEndpoint,
@@ -230,14 +141,14 @@ int mqtt_init(void){
         }
     };
 
-    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    if (client == NULL){
+    ESP_LOGI(MQTT_TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
+    *client = esp_mqtt_client_init(&mqtt_cfg);
+    if (*client == NULL){
         return -1;
     }
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    if (esp_mqtt_client_start(client) == ESP_OK) {
+    esp_mqtt_client_register_event(*client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    if (esp_mqtt_client_start(*client) == ESP_OK) {
         is_running = true;
         return 0;
     }
@@ -246,7 +157,6 @@ int mqtt_init(void){
         return -1;
     }
 }
-
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -376,20 +286,18 @@ void wifi_init_sta(void)
     vEventGroupDelete(s_wifi_event_group);
 }
 
-
-
 void getting_started_task(void *pvParameter) {
 
     quarklink_return_t ql_ret;
     quarklink_return_t ql_status = QUARKLINK_ERROR;
-    while (1) {
+    
         /* get status */
         ESP_LOGI(QL_TAG, "Get status");
         ql_status = quarklink_status(&quarklink);
         switch (ql_status) {
             case QUARKLINK_STATUS_ENROLLED:
                 ESP_LOGI(QL_TAG, "Enrolled");
-                // if Enrollement context was not stroed force  a new Enroll
+                // if Enrollement context was not stored force  a new Enroll
                 if (strcmp(quarklink.iotHubEndpoint,"") == 0){
                     ql_status = QUARKLINK_STATUS_NOT_ENROLLED;
                 }
@@ -408,7 +316,8 @@ void getting_started_task(void *pvParameter) {
                 ESP_LOGI(QL_TAG, "Device revoked");
                 break;
             default:
-                error_loop("Error during status request");
+                ESP_LOGI(QL_TAG, "Error during status request");
+                break;
         }
 
         if (ql_status == QUARKLINK_STATUS_NOT_ENROLLED ||
@@ -423,7 +332,9 @@ void getting_started_task(void *pvParameter) {
                     ql_ret = quarklink_persistEnrolmentContext(&quarklink);
                     if (ql_ret != QUARKLINK_SUCCESS){
                         ESP_LOGW(QL_TAG, "Failed to store the Enrolment context");
+                        break;
                     }
+                    ESP_LOGI(QL_TAG, "endpoint %s", quarklink.iotHubEndpoint);
                     break;
                 case QUARKLINK_DEVICE_DOES_NOT_EXIST:
                     ESP_LOGW(QL_TAG, "Device does not exist");
@@ -433,7 +344,8 @@ void getting_started_task(void *pvParameter) {
                     break;
                 case QUARKLINK_CACERTS_ERROR:
                 default:
-                    error_loop("Error during enrol");
+                    ESP_LOGI(QL_TAG, "Error during enrol");
+                    break;
             }
         }
         
@@ -457,18 +369,20 @@ void getting_started_task(void *pvParameter) {
                     break;
                 case QUARKLINK_FWUPDATE_ERROR:
                 default:
-                    error_loop("error while updating firmware");
+                    ESP_LOGI(QL_TAG, "Error while updating firmware");
+                    break;
             }
         }
-        
 
-        if (ql_status == QUARKLINK_STATUS_ENROLLED)
-        {
-            mqtt_init();
-        }
-        vTaskDelay(20000 / portTICK_PERIOD_MS);
-    }
+    esp_mqtt_client_handle_t client = NULL;
+    ESP_LOGI(MQTT_TAG, "mqtt_init\n");
+    mqtt_init(&client);
 
+    while (1) {
+        esp_mqtt_client_publish(client, "/topic/qos0", "MQTT_EVENT_SUBSCRIBED",
+                                                0, 0, 0);
+        vTaskDelay(10000 / portTICK_PERIOD_MS); 
+    }    
 }
 
 void set_led(void){
