@@ -8,7 +8,7 @@ See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/Quar
 
 ## Pre-built binaries
 
-To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries) 
+To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-getting-started) 
 
 ## Building this project
 
