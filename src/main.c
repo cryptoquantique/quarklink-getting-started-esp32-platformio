@@ -424,7 +424,7 @@ void set_led(void){
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "quarklink-getting_started-esp32-c3 GREEN LED\n");
+    ESP_LOGI(TAG, "quarklink-getting_started-esp32-platformio-c3 GREEN LED\n");
     set_led(); // esp32-c3 RGB LED
 
     /* quarklink init */
