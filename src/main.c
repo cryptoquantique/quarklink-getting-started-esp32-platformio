@@ -10,7 +10,6 @@
 #include "mqtt_client.h"
 #include "esp_ota_ops.h"
 
-/* LED Strip */
 #define LED_STRIP_BLINK_GPIO  8 // GPIO assignment
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
@@ -29,12 +28,15 @@ static int s_retry_num = 0;
 static const char *TAG = "wifi station";
 static const char *IEF_TAG = "IEF";
 static const char *QL_TAG = "QL";
-
 static const char *MQTT_TAG = "mqtt event handler";
+
+int CONFIG_BROKER_BIN_SIZE_TO_SEND = 20000;
 
 quarklink_context_t quarklink;
 
-int CONFIG_BROKER_BIN_SIZE_TO_SEND = 20000;
+    char *CQ_ENDPOINT = "";
+    int CQ_PORT = 0;
+    char *CQ_GATEWAY_CERT = "";
 
 /*
  * @brief Event handler registered to receive MQTT events
@@ -67,8 +69,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
     case MQTT_EVENT_SUBSCRIBED:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-        msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "MQTT_EVENT_SUBSCRIBED", 0, 0, 0);
-        ESP_LOGI(MQTT_TAG, "sent publish successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
         ESP_LOGI(MQTT_TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
@@ -235,29 +235,12 @@ void wifi_init_sta(void)
                                                         &event_handler,
                                                         NULL,
                                                         &instance_got_ip));
-    //wifi_config_t wifi_config;   // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-    
-    // HARD_CODED CLAUDIA
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = "vodafone4BAA80",
-            .password = "Pr2YgfcAfmM9fYCn",
-            /* Setting a password implies station will connect to all security modes including WEP/WPA.
-             * However these modes are deprecated and not advisable to be used. Incase your Access point
-             * doesn't support WPA2, these mode can be enabled by commenting below line */
-	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-        },
-    }; //HARD_CODED CLAUDIA
 
-
-    // /* Load existing configuration and prompt user */
-    //esp_wifi_get_config(WIFI_IF_STA, &wifi_config); // PUT IT BACK AFTER REMOVING THE REST OF HARD_CODED CLAUDIA
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //HARD_CODED CLAUDIA
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) ); //HARD_CODED CLAUDIA
+    wifi_config_t wifi_config;
+    /* Load existing configuration and prompt user */
+    esp_wifi_get_config(WIFI_IF_STA, &wifi_config);
 
     ESP_ERROR_CHECK(esp_wifi_start() );
-
     ESP_LOGI(TAG, "wifi_init_sta finished.");
 
     /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
@@ -291,67 +274,106 @@ void getting_started_task(void *pvParameter) {
     quarklink_return_t ql_ret;
     quarklink_return_t ql_status = QUARKLINK_ERROR;
     
-        /* get status */
-        ESP_LOGI(QL_TAG, "Get status");
-        ql_status = quarklink_status(&quarklink);
-        switch (ql_status) {
-            case QUARKLINK_STATUS_ENROLLED:
-                ESP_LOGI(QL_TAG, "Enrolled");
-                // if Enrollement context was not stored force  a new Enroll
-                if (strcmp(quarklink.iotHubEndpoint,"") == 0){
-                    ql_status = QUARKLINK_STATUS_NOT_ENROLLED;
+    /* get status */
+    ESP_LOGI(QL_TAG, "Get status");
+    ql_status = quarklink_status(&quarklink);
+    switch (ql_status) {
+        case QUARKLINK_STATUS_ENROLLED:
+            ESP_LOGI(QL_TAG, "Enrolled");
+            // if Enrollement context was not stored force  a new Enroll
+            if (strcmp(quarklink.iotHubEndpoint,"") == 0){
+                ql_status = QUARKLINK_STATUS_NOT_ENROLLED;
+            }
+            ESP_LOGI(QL_TAG, "endpoint %s", quarklink.iotHubEndpoint);
+            break;
+        case QUARKLINK_STATUS_FWUPDATE_REQUIRED:
+            ESP_LOGI(QL_TAG, "Firmware Update required");
+            break;
+        case QUARKLINK_STATUS_NOT_ENROLLED:
+            ESP_LOGI(QL_TAG, "Not enrolled");
+            break;
+        case QUARKLINK_STATUS_CERTIFICATE_EXPIRED:
+            ESP_LOGI(QL_TAG, "Certificate expired");
+            break;
+        case QUARKLINK_STATUS_REVOKED:
+            ESP_LOGI(QL_TAG, "Device revoked");
+            break;
+        default:
+            ESP_LOGI(QL_TAG, "Error during status request");
+            break;
+    }
+
+    if (ql_status == QUARKLINK_STATUS_NOT_ENROLLED ||
+        ql_status == QUARKLINK_STATUS_CERTIFICATE_EXPIRED ||
+        ql_status == QUARKLINK_STATUS_REVOKED) {
+        /* enroll */
+        ESP_LOGI(QL_TAG, "Enrol to %s", quarklink.endpoint);
+        ql_ret = quarklink_enrol(&quarklink);
+        switch (ql_ret) {
+            case QUARKLINK_SUCCESS:
+                ESP_LOGI(QL_TAG, "Successfully enrolled!");
+                ql_ret = quarklink_persistEnrolmentContext(&quarklink);
+                if (ql_ret != QUARKLINK_SUCCESS){
+                    ESP_LOGW(QL_TAG, "Failed to store the Enrolment context");
+                    break;
                 }
+                ql_status = QUARKLINK_STATUS_ENROLLED;
                 ESP_LOGI(QL_TAG, "endpoint %s", quarklink.iotHubEndpoint);
                 break;
-            case QUARKLINK_STATUS_FWUPDATE_REQUIRED:
-                ESP_LOGI(QL_TAG, "Firmware Update required");
+            case QUARKLINK_DEVICE_DOES_NOT_EXIST:
+                ESP_LOGW(QL_TAG, "Device does not exist");
                 break;
-            case QUARKLINK_STATUS_NOT_ENROLLED:
-                ESP_LOGI(QL_TAG, "Not enrolled");
+            case QUARKLINK_DEVICE_REVOKED:
+                ESP_LOGW(QL_TAG, "Device revoked");
                 break;
-            case QUARKLINK_STATUS_CERTIFICATE_EXPIRED:
-                ESP_LOGI(QL_TAG, "Certificate expired");
-                break;
-            case QUARKLINK_STATUS_REVOKED:
-                ESP_LOGI(QL_TAG, "Device revoked");
-                break;
+            case QUARKLINK_CACERTS_ERROR:
             default:
-                ESP_LOGI(QL_TAG, "Error during status request");
+                ESP_LOGI(QL_TAG, "Error during enrol");
                 break;
         }
-
-        if (ql_status == QUARKLINK_STATUS_NOT_ENROLLED ||
-            ql_status == QUARKLINK_STATUS_CERTIFICATE_EXPIRED ||
-            ql_status == QUARKLINK_STATUS_REVOKED) {
-            /* enroll */
-            ESP_LOGI(QL_TAG, "Enrol to %s", quarklink.endpoint);
-            ql_ret = quarklink_enrol(&quarklink);
-            switch (ql_ret) {
-                case QUARKLINK_SUCCESS:
-                    ESP_LOGI(QL_TAG, "Successfully enrolled!");
-                    ql_ret = quarklink_persistEnrolmentContext(&quarklink);
-                    if (ql_ret != QUARKLINK_SUCCESS){
-                        ESP_LOGW(QL_TAG, "Failed to store the Enrolment context");
-                        break;
-                    }
-                    ESP_LOGI(QL_TAG, "endpoint %s", quarklink.iotHubEndpoint);
-                    break;
-                case QUARKLINK_DEVICE_DOES_NOT_EXIST:
-                    ESP_LOGW(QL_TAG, "Device does not exist");
-                    break;
-                case QUARKLINK_DEVICE_REVOKED:
-                    ESP_LOGW(QL_TAG, "Device revoked");
-                    break;
-                case QUARKLINK_CACERTS_ERROR:
-                default:
-                    ESP_LOGI(QL_TAG, "Error during enrol");
-                    break;
-            }
+    }
+    
+    if (ql_status == QUARKLINK_STATUS_FWUPDATE_REQUIRED) {
+        /* firmware update */
+        ESP_LOGI(QL_TAG, "Get firmware update");
+        ql_ret = quarklink_firmwareUpdate(&quarklink, NULL);
+        switch (ql_ret) {
+            case QUARKLINK_FWUPDATE_UPDATED:
+                ESP_LOGI(QL_TAG, "Firmware updated. Rebooting...");
+                esp_restart();
+                break;
+            case QUARKLINK_FWUPDATE_NO_UPDATE:
+                ESP_LOGI(QL_TAG, "No firmware update");
+                break;
+            case QUARKLINK_FWUPDATE_WRONG_SIGNATURE:
+                ESP_LOGI(QL_TAG, "Wrong firmware signature");
+                break;
+            case QUARKLINK_FWUPDATE_MISSING_SIGNATURE:
+                ESP_LOGI(QL_TAG, "Missing required firmware signature");
+                break;
+            case QUARKLINK_FWUPDATE_ERROR:
+            default:
+                ESP_LOGI(QL_TAG, "Error while updating firmware");
+                break;
         }
-        
+    }
+
+    esp_mqtt_client_handle_t client = NULL;
+    ESP_LOGI(MQTT_TAG, "mqtt_init\n");
+    mqtt_init(&client);
+
+    char outTopic[100];
+    strcpy(outTopic, "topic/");
+    strcat(outTopic, quarklink.deviceID);
+
+    while (1 && (ql_status == QUARKLINK_STATUS_ENROLLED)) {
+
+        esp_mqtt_client_publish(client, outTopic, "PUBLISHING", 0, 0, 0);
+        ESP_LOGI(MQTT_TAG, "PUBLISHING");
+        vTaskDelay(10000 / portTICK_PERIOD_MS); 
+        ESP_LOGI(QL_TAG, "Get status");
+        ql_status = quarklink_status(&quarklink);
         if (ql_status == QUARKLINK_STATUS_FWUPDATE_REQUIRED) {
-            /* firmware update */
-            ESP_LOGI(QL_TAG, "Get firmware update");
             ql_ret = quarklink_firmwareUpdate(&quarklink, NULL);
             switch (ql_ret) {
                 case QUARKLINK_FWUPDATE_UPDATED:
@@ -373,16 +395,7 @@ void getting_started_task(void *pvParameter) {
                     break;
             }
         }
-
-    esp_mqtt_client_handle_t client = NULL;
-    ESP_LOGI(MQTT_TAG, "mqtt_init\n");
-    mqtt_init(&client);
-
-    while (1) {
-        esp_mqtt_client_publish(client, "/topic/qos0", "MQTT_EVENT_SUBSCRIBED",
-                                                0, 0, 0);
-        vTaskDelay(10000 / portTICK_PERIOD_MS); 
-    }    
+    }
 }
 
 void set_led(void){
@@ -410,28 +423,9 @@ void set_led(void){
     led_strip_refresh(led_strip);
 }
 
-
-// HARD CODED CLAUDIA
-/* Quarklinik Details. */
-char *CQ_ENDPOINT = "cqtest.quarklink-staging.io";
-int CQ_PORT = 6000;
-char *CQ_GATEWAY_CERT = // CA_CERT for cqtest
-    "-----BEGIN CERTIFICATE-----\n"\
-    "MIIBXjCCAQSgAwIBAgIIF1CZM8uRvrgwCgYIKoZIzj0EAwIwEjEQMA4GA1UEAxMH\n"\
-    "T0VNUm9vdDAgFw0yMzAzMjgxMzQ1MDhaGA8yMDUzMDMyMDEzNDUwOFowEjEQMA4G\n"\
-    "A1UEAxMHT0VNUm9vdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABA4x1u8ICV/T\n"\
-    "u2bQjY2O1HxqgM56WGENWqO+vZ1c3bk2ApNHTZ5r/MKwyP67DG5SbAFlCzt0m2Ab\n"\
-    "yW/bmjt8bkejQjBAMA4GA1UdDwEB/wQEAwIChDAPBgNVHRMBAf8EBTADAQH/MB0G\n"\
-    "A1UdDgQWBBQrDtBEyyVI9/bcRyuh3jjEs7JpijAKBggqhkjOPQQDAgNIADBFAiBi\n"\
-    "KYsy0UjyLLWOZSbMLYjfCYIUC645HrUNObLNmPxnRwIhAItZM1y4aRvEm0xjKSP9\n"\
-    "VOHBMBILDCC8OvfSjuP2phoU\n"\
-    "-----END CERTIFICATE-----\n";
-
-
 void app_main(void)
 {
-
-    printf("\n quarklink-getting_started esp32-c3 mqtt WIP Hard coded 0.1.0 BLUE LED*\n");
+    printf("\n quarklink-getting_started esp32-c3 MQTT 0.1.0 GREEN LED\n");
     set_led(); // esp32-c3 RGB LED
 
     /* quarklink init */
@@ -441,13 +435,7 @@ void app_main(void)
     if (ql_ret != QUARKLINK_SUCCESS || ql_ret != QUARKLINK_CONTEXT_NO_ENROLMENT_INFO_STORED) {
         ESP_LOGE(QL_TAG, "ql_ret %d\n", ql_ret);
     }
-    else if (ql_ret == QUARKLINK_CONTEXT_NO_CREDENTIALS_STORED || ql_ret != QUARKLINK_CONTEXT_NOTHING_STORED) {
-        ESP_LOGE(QL_TAG, "ql_ret %d\n", ql_ret);
-        strcpy(quarklink.endpoint, CQ_ENDPOINT);
-        strcpy(quarklink.rootCert, CQ_GATEWAY_CERT);   
-    }
     ESP_LOGI(QL_TAG, "Device ID: %s", quarklink.deviceID);
-
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
