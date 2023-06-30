@@ -418,13 +418,13 @@ void set_led(void){
         .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
     };
     led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
-    led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+    led_strip_set_pixel(led_strip, 0, 0, 0, 255);
     led_strip_refresh(led_strip);
 }
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "quarklink-getting_started-esp32-platformio-c3 GREEN LED\n");
+    ESP_LOGI(TAG, "quarklink-getting-started-esp32-platformio-c3 BLUE LED\n");
     set_led(); // esp32-c3 RGB LED
 
     /* quarklink init */
