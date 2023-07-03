@@ -1,14 +1,15 @@
 # Quarklink Getting Started
 
-This project shows an exmaple of get started with Quarklink to make a secure IoT device using an ESP32.
+This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32.
 
-The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the Quarklink Hardware Security Module (HSM).
+The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
-See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
+See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
 
 ## Pre-built binaries
 
-To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-getting-started) 
+To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-getting-started). These binaries can be programmed
+into the ESP32 device using the QuarkLink provisioning facility. No need for third party programming tools.
 
 ## Building this project
 
@@ -47,4 +48,7 @@ The build will create a firmware binary file within the .pio directory:
 firmware.bin
 ```
 
-That ```firmware.bin``` file is what you upload to Quarklink.
+The ```firmware.bin``` file is what you upload to Quarklink. Click on the "Firmwares" option of the QuarkLink main menu to access the uploading function. Once uploaded to QuarkLink configure your
+Batch with the new firmware image and it will be automatically downloaded to the ESP32. See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf)
+for more details.
+
