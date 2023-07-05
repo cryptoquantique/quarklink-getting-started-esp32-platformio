@@ -411,9 +411,9 @@ void getting_started_task(void *pvParameter) {
 }
 
 void led_set_colour(led_strip_handle_t strip, int colour){
-    if (colour == RED)led_strip_set_pixel(led_strip, 0, RED, 0, 0);
-    else if (colour == GREEN)led_strip_set_pixel(led_strip, 0, 0, GREEN, 0);
-    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, BLUE);
+    if (colour == RED)led_strip_set_pixel(led_strip, 0, 255, 0, 0);
+    else if (colour == GREEN)led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
     else led_strip_set_pixel(led_strip, 0, 0, 0, 0);
     led_strip_refresh(led_strip);
 }
@@ -440,7 +440,7 @@ void set_led(void){
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "quarklink-getting-started-esp32-platformio-c3 BLUE LED\n");
+    ESP_LOGI(TAG, "quarklink-getting-started-esp32-platformio-c3\n");
     set_led(); // esp32-c3 RGB LED
     led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
 
