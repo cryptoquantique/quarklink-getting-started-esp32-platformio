@@ -14,6 +14,17 @@
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 
+#define RED     1
+#define GREEN   2
+#define BLUE    3
+
+#ifndef LED_COLOUR
+#define LED_COLOUR  0
+#endif
+
+// LED Strip object handle
+led_strip_handle_t led_strip;
+
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
 
@@ -38,6 +49,7 @@ static const int MQTT_PUBLISH_INTERVAL = 5;
 // Topic (aws/topic/<deviceID>)
 #define MAX_TOPIC_LENGTH    (QUARKLINK_MAX_DEVICE_ID_LENGTH + 30)
 
+void led_set_colour(led_strip_handle_t strip, int colour);
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -104,8 +116,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 {
     ESP_LOGI(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
     esp_mqtt_event_handle_t event = event_data;
-    esp_mqtt_client_handle_t client = event->client;
-    int msg_id;
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
@@ -389,6 +399,9 @@ void getting_started_task(void *pvParameter) {
             }
             else {
                 ESP_LOGI(TAG, "Published to %s, msg_id=%d", mqtt_topic, msg_id);
+                led_strip_clear(led_strip);
+                vTaskDelay(100 / portTICK_PERIOD_MS);
+                led_set_colour(led_strip, LED_COLOUR);
             }
         }
 
@@ -397,10 +410,15 @@ void getting_started_task(void *pvParameter) {
     }
 }
 
-void set_led(void){
+void led_set_colour(led_strip_handle_t strip, int colour){
+    if (colour == RED)led_strip_set_pixel(led_strip, 0, RED, 0, 0);
+    else if (colour == GREEN)led_strip_set_pixel(led_strip, 0, 0, GREEN, 0);
+    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, BLUE);
+    else led_strip_set_pixel(led_strip, 0, 0, 0, 0);
+    led_strip_refresh(led_strip);
+}
 
-    // LED Strip object handle
-    led_strip_handle_t led_strip;
+void set_led(void){
 
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
@@ -418,14 +436,13 @@ void set_led(void){
         .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
     };
     led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
-    led_strip_set_pixel(led_strip, 0, 0, 0, 255);
-    led_strip_refresh(led_strip);
 }
 
 void app_main(void)
 {
     ESP_LOGI(TAG, "quarklink-getting-started-esp32-platformio-c3 BLUE LED\n");
     set_led(); // esp32-c3 RGB LED
+    led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
 
     /* quarklink init */
     ESP_LOGI(TAG, "Loading stored QuarkLink context");
