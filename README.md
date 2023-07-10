@@ -54,9 +54,7 @@ for more details.
 
 ## Building project version RGB LED ON (only for esp32-c3 board)
 
-The esp32-c3 board has and RGB Led
-
-To set the RGB to Red use the ``` $Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"``` command before ``` pio run``` :
+To set the RGB to Red colour use the ``` $Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"``` command before ``` pio run``` :
 ```
 >$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=RED"
 >pio run
@@ -74,9 +72,9 @@ To set the RGB to Blue use:
 >pio run
 ```
 
-To set the RGB use:
+To unset the RGB use:
 ```
 >$Env:PLATFORMIO_BUILD_FLAGS=""
 >pio run
 ```
-In this case unplug and replug the board.
+<!-- In these case unplug an replug the board  -->
