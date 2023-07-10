@@ -52,3 +52,31 @@ The ```firmware.bin``` file is what you upload to Quarklink. Click on the "Firmw
 Batch with the new firmware image and it will be automatically downloaded to the ESP32. See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf)
 for more details.
 
+## Building project version RGB LED ON (only for esp32-c3 board)
+
+The esp32-c3 board has and RGB Led
+
+To set the RGB to Red use the ``` $Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"``` command before ``` pio run``` :
+```
+>$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=RED"
+>pio run
+```
+
+To set the RGB to Green use:
+```
+>$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"
+>pio run
+```
+
+To set the RGB to Blue use:
+```
+>$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=BLUE"
+>pio run
+```
+
+To set the RGB use:
+```
+>$Env:PLATFORMIO_BUILD_FLAGS=""
+>pio run
+```
+In this case unplug and replug the board.
