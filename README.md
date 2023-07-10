@@ -77,4 +77,4 @@ To unset the RGB use:
 >$Env:PLATFORMIO_BUILD_FLAGS=""
 >pio run
 ```
-<!-- In these case unplug an replug the board  -->
+In these case unplug an replug the board
