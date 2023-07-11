@@ -14,16 +14,16 @@
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 
-#define RED     1
-#define GREEN   2
-#define BLUE    3
+#define RED     "Red"
+#define GREEN   "Green"
+#define BLUE    "Blue"
 
 #ifndef LED_COLOUR
 #define LED_COLOUR  0
+#define LED_SET 0
+#else
+#define LED_SET 1
 #endif
-
-// LED Strip object handle
-led_strip_handle_t led_strip;
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -35,6 +35,9 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 
 static int s_retry_num = 0;
+
+static int count = 0;
+char data[10] = "";
 
 static const char *TAG = "quarklink-getting-started";
 quarklink_context_t quarklink;
@@ -49,7 +52,12 @@ static const int MQTT_PUBLISH_INTERVAL = 5;
 // Topic (aws/topic/<deviceID>)
 #define MAX_TOPIC_LENGTH    (QUARKLINK_MAX_DEVICE_ID_LENGTH + 30)
 
+#if (LED_SET)
+// LED Strip object handle
+led_strip_handle_t led_strip;
+
 void led_set_colour(led_strip_handle_t strip, int colour);
+#endif
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -165,12 +173,12 @@ void getMqttTopic(quarklink_context_t *quarklink, char *topic) {
     // If Broker is AWS
     if (strstr(quarklink->iotHubEndpoint, "amazon") != 0) {
         ESP_LOGI(TAG, "Broker is AWS");
-        sprintf(topic, "aws/topic/%s/", quarklink->deviceID);
+        sprintf(topic, "aws/topic/%s", quarklink->deviceID);
     }
     // If Broker is QuarkLink MQTT
     else {
         ESP_LOGI(TAG, "Broker is QuarkLink MQTT");
-        sprintf(topic, "local/topic/%s/", quarklink->deviceID);
+        sprintf(topic, "local/topic/%s", quarklink->deviceID);
     }
 }
 
@@ -393,15 +401,18 @@ void getting_started_task(void *pvParameter) {
                 getMqttTopic(&quarklink, mqtt_topic);
             }
             // len = 0 and data not NULL is valid, length is determined by strlen
-            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, "data", 0, 0, 0);
+            sprintf(data, "%d", count++);
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 0, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
             else {
-                ESP_LOGI(TAG, "Published to %s, msg_id=%d", mqtt_topic, msg_id);
+                ESP_LOGI(TAG, "Published data=%s, to %s", data, mqtt_topic);
+                #if (LED_SET)
                 led_strip_clear(led_strip);
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 led_set_colour(led_strip, LED_COLOUR);
+                #endif
             }
         }
 
@@ -410,10 +421,11 @@ void getting_started_task(void *pvParameter) {
     }
 }
 
+#if (LED_SET)
 void led_set_colour(led_strip_handle_t strip, int colour){
-    if (colour == RED)led_strip_set_pixel(led_strip, 0, 255, 0, 0);
-    else if (colour == GREEN)led_strip_set_pixel(led_strip, 0, 0, 255, 0);
-    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
+    if (!strcmp(colour,RED)) led_strip_set_pixel(led_strip, 0, 255, 0, 0);
+    else if (!strcmp(colour,GREEN)) led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+    else if (!strcmp(colour,BLUE)) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
     else led_strip_set_pixel(led_strip, 0, 0, 0, 0);
     led_strip_refresh(led_strip);
 }
@@ -437,12 +449,17 @@ void set_led(void){
     };
     led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
 }
+#endif
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "quarklink-getting-started-esp32-platformio-c3\n");
-    set_led(); // esp32-c3 RGB LED
-    led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
+    #if (LED_SET)
+        ESP_LOGI(TAG, "quarklink-getting-started-esp32-c3 %s Led\n", LED_COLOUR);
+        set_led(); // esp32-c3 RGB LED
+        led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
+    #else 
+        ESP_LOGI(TAG, "quarklink-getting-started-esp32\n");
+    #endif
 
     /* quarklink init */
     ESP_LOGI(TAG, "Loading stored QuarkLink context");
