@@ -36,6 +36,9 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static int s_retry_num = 0;
 
+static int count = 0;
+char data[10] = "";
+
 static const char *TAG = "quarklink-getting-started";
 quarklink_context_t quarklink;
 
@@ -170,12 +173,12 @@ void getMqttTopic(quarklink_context_t *quarklink, char *topic) {
     // If Broker is AWS
     if (strstr(quarklink->iotHubEndpoint, "amazon") != 0) {
         ESP_LOGI(TAG, "Broker is AWS");
-        sprintf(topic, "aws/topic/%s/", quarklink->deviceID);
+        sprintf(topic, "aws/topic/%s", quarklink->deviceID);
     }
     // If Broker is QuarkLink MQTT
     else {
         ESP_LOGI(TAG, "Broker is QuarkLink MQTT");
-        sprintf(topic, "local/topic/%s/", quarklink->deviceID);
+        sprintf(topic, "local/topic/%s", quarklink->deviceID);
     }
 }
 
@@ -398,12 +401,13 @@ void getting_started_task(void *pvParameter) {
                 getMqttTopic(&quarklink, mqtt_topic);
             }
             // len = 0 and data not NULL is valid, length is determined by strlen
-            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, "data", 0, 0, 0);
+            sprintf(data, "%d", count++);
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 0, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
             else {
-                ESP_LOGI(TAG, "Published to %s, msg_id=%d", mqtt_topic, msg_id);
+                ESP_LOGI(TAG, "Published data=%s, to %s", data, mqtt_topic);
                 #if (LED_SET)
                 led_strip_clear(led_strip);
                 vTaskDelay(100 / portTICK_PERIOD_MS);

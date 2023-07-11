@@ -1,6 +1,6 @@
 # Quarklink Getting Started
 
-This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32.
+This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32 (esp32-c3).
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
@@ -52,15 +52,12 @@ The ```firmware.bin``` file is what you upload to Quarklink. Click on the "Firmw
 Batch with the new firmware image and it will be automatically downloaded to the ESP32. See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf)
 for more details.
 
+The default environment is esp32-c3, to enable the Quarklink Client Debug environment run the command ```pio run -e esp32-c3-debug```.
+
 ## Building project version RGB LED ON (only for esp32-c3 board)
 
-To set the RGB to Red colour use the ``` $Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"``` command before ``` pio run``` :
-```
->$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=RED"
->pio run
-```
+To set the RGB to Green colour use the ``` $Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"``` command before ``` pio run``` :
 
-To set the RGB to Green use:
 ```
 >$Env:PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"
 >pio run
