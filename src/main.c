@@ -190,8 +190,7 @@ void getMqttTopic(quarklink_context_t *quarklink, char *topic) {
  * \return int 0 for success
  */
 int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
-    // Aux variable to keep track if mqtt task has already been started
-    if (is_running == true) {
+    if (is_running) {
         return 0;
     }
 
@@ -411,7 +410,7 @@ void getting_started_task(void *pvParameter) {
             }
             // len = 0 and data not NULL is valid, length is determined by strlen
             sprintf(data, "%d", count++);
-            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 1, 0);
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 0, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
