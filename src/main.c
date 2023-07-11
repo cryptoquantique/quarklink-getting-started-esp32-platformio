@@ -14,16 +14,13 @@
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 
-#define RED     "Red"
-#define GREEN   "Green"
-#define BLUE    "Blue"
-
 #ifndef LED_COLOUR
 #define LED_COLOUR  0
-#define LED_SET 0
-#else
-#define LED_SET 1
 #endif
+
+#define RED     1
+#define GREEN   2
+#define BLUE    3
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -52,7 +49,10 @@ static const int MQTT_PUBLISH_INTERVAL = 5;
 // Topic (aws/topic/<deviceID>)
 #define MAX_TOPIC_LENGTH    (QUARKLINK_MAX_DEVICE_ID_LENGTH + 30)
 
-#if (LED_SET)
+/*Variable to track if the MQTT Task is running*/
+static bool is_running = false;
+
+#if (LED_COLOUR)
 // LED Strip object handle
 led_strip_handle_t led_strip;
 
@@ -191,7 +191,6 @@ void getMqttTopic(quarklink_context_t *quarklink, char *topic) {
  */
 int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
     // Aux variable to keep track if mqtt task has already been started
-    static bool is_running = false;
     if (is_running == true) {
         return 0;
     }
@@ -322,6 +321,9 @@ void getting_started_task(void *pvParameter) {
                     ESP_LOGI(TAG, "Certificate expired");
                     break;
                 case QUARKLINK_STATUS_REVOKED:
+                    #if (LED_COLOUR)
+                    led_set_colour(led_strip, RED);
+                    #endif
                     ESP_LOGI(TAG, "Device revoked");
                     break;
                 default:
@@ -335,6 +337,7 @@ void getting_started_task(void *pvParameter) {
                 /* Reset mqtt */
                 strcpy(mqtt_topic, "");
                 esp_mqtt_client_stop(mqtt_client);
+                is_running = false;
                 /* enroll */
                 ESP_LOGI(TAG, "Enrol to %s", quarklink.endpoint);
                 ql_ret = quarklink_enrol(&quarklink);
@@ -345,6 +348,9 @@ void getting_started_task(void *pvParameter) {
                         if (ql_ret != QUARKLINK_SUCCESS){
                             ESP_LOGW(TAG, "Failed to store the Enrolment context");
                         }
+                        #if (LED_COLOUR)
+                        led_set_colour(led_strip, LED_COLOUR);
+                        #endif
                         /* Update Status to avoid delaying MQTT Client init */
                         ql_status = QUARKLINK_STATUS_ENROLLED;
                         break;
@@ -352,6 +358,9 @@ void getting_started_task(void *pvParameter) {
                         ESP_LOGW(TAG, "Device does not exist");
                         break;
                     case QUARKLINK_DEVICE_REVOKED:
+                        #if (LED_COLOUR)
+                        led_set_colour(led_strip, RED);
+                        #endif
                         ESP_LOGW(TAG, "Device revoked");
                         break;
                     case QUARKLINK_CACERTS_ERROR:
@@ -396,19 +405,19 @@ void getting_started_task(void *pvParameter) {
         }
 
         // If it's time to publish
-        if (round % MQTT_PUBLISH_INTERVAL == 0) {
+        if ((round % MQTT_PUBLISH_INTERVAL == 0) && (ql_status == QUARKLINK_STATUS_ENROLLED)) {
             if (strcmp(mqtt_topic, "") == 0) {
                 getMqttTopic(&quarklink, mqtt_topic);
             }
             // len = 0 and data not NULL is valid, length is determined by strlen
             sprintf(data, "%d", count++);
-            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 0, 0);
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 1, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
             else {
                 ESP_LOGI(TAG, "Published data=%s, to %s", data, mqtt_topic);
-                #if (LED_SET)
+                #if (LED_COLOUR)
                 led_strip_clear(led_strip);
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 led_set_colour(led_strip, LED_COLOUR);
@@ -421,11 +430,11 @@ void getting_started_task(void *pvParameter) {
     }
 }
 
-#if (LED_SET)
+#if (LED_COLOUR)
 void led_set_colour(led_strip_handle_t strip, int colour){
-    if (!strcmp(colour,RED)) led_strip_set_pixel(led_strip, 0, 255, 0, 0);
-    else if (!strcmp(colour,GREEN)) led_strip_set_pixel(led_strip, 0, 0, 255, 0);
-    else if (!strcmp(colour,BLUE)) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
+    if (colour == RED) led_strip_set_pixel(led_strip, 0, 255, 0, 0);
+    else if (colour == GREEN) led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
     else led_strip_set_pixel(led_strip, 0, 0, 0, 0);
     led_strip_refresh(led_strip);
 }
@@ -453,12 +462,11 @@ void set_led(void){
 
 void app_main(void)
 {
-    #if (LED_SET)
-        ESP_LOGI(TAG, "quarklink-getting-started-esp32-c3 %s Led\n", LED_COLOUR);
+    ESP_LOGI(TAG, "quarklink-getting-started-esp32\n");
+    
+    #if (LED_COLOUR)
         set_led(); // esp32-c3 RGB LED
         led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
-    #else 
-        ESP_LOGI(TAG, "quarklink-getting-started-esp32\n");
     #endif
 
     /* quarklink init */
