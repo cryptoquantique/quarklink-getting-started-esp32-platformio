@@ -75,3 +75,6 @@ To unset the RGB use:
 >pio run
 ```
 In these case unplug an replug the board
+
+## Further Notes
+**Custom Partition Table:** users might be interested in using their own partition table with QuarkLink. Currently, support for this feature is only for paid tiers, however users are welcome to request a custom partition table via the GitHub issues on this project.
