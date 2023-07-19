@@ -6,18 +6,28 @@ The result is an ESP32 that is using secure boot, flash encryption, has a Root-o
 
 See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
 
+## Requirements
+
+There are a few requirements needed in order to get started with this project:
+
+- **PlatformIO**
+    The project uses the PlatformIO build environment. If you don't already have this follow the installation instructions [here](https://platformio.org/install).  
+    You can verify PlatformIO is installed with ```pio --version``` command:
+    ```
+    >pio --version
+    PlatformIO Core, version 6.1.7
+    ``` 
+- **quarklink-client libraries**
+    The quarklink-client library comes in the form of compiled binaries and can be found in the [quarklink-binaries repository](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-client).  
+    Copy the required files into the `lib` folder of this project.  
+    For example, if building for `esp32-c3`: copy the file `libquarklink-client-esp32-c3-v1.3.0.a` to the local clone of this repository, inside `lib`.
+
 ## Pre-built binaries
 
 To make getting started easy there are pre-built binaries of this project available [here](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-getting-started). These binaries can be programmed
 into the ESP32 device using the QuarkLink provisioning facility. No need for third party programming tools.
 
 ## Building this project
-
-The project uses the PlatformIO build environment. If you don't already have this follow the installation instructions [here](https://platformio.org/install). You can verify PlatformIO is installed with ```pio --version``` command:
-```
->pio --version
-PlatformIO Core, version 6.1.7
-``` 
 
 To build the project use the ```pio run``` command:
 ```
