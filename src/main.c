@@ -63,14 +63,14 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        ESP_LOGI(TAG, "Connection to the AP failed");
         if (s_retry_num < 10) {
             esp_wifi_connect();
             s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
+            ESP_LOGI(TAG, "Retry to connect to the AP (%d/%d)", s_retry_num, 10);
         } else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
-        ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
@@ -280,6 +280,10 @@ void wifi_init_sta(void) {
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGI(TAG, "Failed to connect to SSID: %s",
                  wifi_config.sta.ssid);
+        ESP_LOGI(TAG, "Reached maximum retry limit for connection to the AP");
+        ESP_LOGI(TAG, "Restarting");    
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        esp_restart();
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
