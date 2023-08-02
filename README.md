@@ -1,10 +1,10 @@
 # Quarklink Getting Started
 
-This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32 (esp32-c3).
+This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32 ([esp32-c3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/hw-reference/esp32c3/user-guide-devkitm-1.html)).
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
-See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf) for more detailed information on how to use this example project.
+See the [QuarkLink Getting Started Guide](https://github.com/cryptoquantique/cryptoquantique.github.io/blob/main/QuarkLink%20Ignite%20Getting%20Started%20Guide%20V1.00.pdf) for more detailed information on how to use this example project.
 
 ## Requirements
 
@@ -59,7 +59,7 @@ firmware.bin
 ```
 
 The ```firmware.bin``` file is what you upload to Quarklink. Click on the "Firmwares" option of the QuarkLink main menu to access the uploading function. Once uploaded to QuarkLink configure your
-Batch with the new firmware image and it will be automatically downloaded to the ESP32. See the [Quarklink Getting Started Guide](https://cryptoquantique.github.io/QuarklinkGettingStartedGuide.pdf)
+Batch with the new firmware image and it will be automatically downloaded to the ESP32. See the [Quarklink Getting Started Guide](https://github.com/cryptoquantique/cryptoquantique.github.io/blob/main/QuarkLink%20Ignite%20Getting%20Started%20Guide%20V1.00.pdf)
 for more details.
 
 The default environment is esp32-c3, to enable the Quarklink Client Debug environment run the command ```pio run -e esp32-c3-debug```.
