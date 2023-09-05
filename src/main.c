@@ -46,8 +46,9 @@ static const int STATUS_CHECK_INTERVAL = 20;
 static const int MQTT_PUBLISH_INTERVAL = 5;
 
 /* MQTT config */
-// Topic (aws/topic/<deviceID>)
 #define MAX_TOPIC_LENGTH    (QUARKLINK_MAX_DEVICE_ID_LENGTH + 30)
+#define MAX_MESSAGE_LENGTH  30
+char mqtt_topic[MAX_TOPIC_LENGTH] = "";
 
 /*Variable to track if the MQTT Task is running*/
 static bool is_running = false;
@@ -171,6 +172,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
+bool isAzure(quarklink_context_t *quarklink) {
+    return ((strstr(quarklink->iotHubEndpoint, "azure") != 0)  && (strlen(quarklink->scopeID) == 0));
+}
+
+bool isAzureCentral(quarklink_context_t *quarklink) {
+    return ((strstr(quarklink->iotHubEndpoint, "azure") != 0)  && (strlen(quarklink->scopeID) != 0));
+}
+
 /**
  * \brief Initialise the MQTT task using to the QuarkLink details provided. 
  *
@@ -190,7 +199,7 @@ int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
         return -1;
     }
     
-    const esp_mqtt_client_config_t mqtt_cfg = {
+    esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address.hostname = quarklink->iotHubEndpoint,
             .address.port = quarklink->iotHubPort,
@@ -206,8 +215,20 @@ int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
         }
     };
 
+    if (isAzure(quarklink) || isAzureCentral(quarklink)) {
+        char userName[256] = "";
+        sprintf(userName, "%s/%s/?api-version=2018-06-30", quarklink->iotHubEndpoint, quarklink->deviceID);
+        mqtt_cfg.credentials.username = userName;
+        mqtt_cfg.session.last_will.topic = "";
+        mqtt_cfg.session.last_will.msg = "";
+        mqtt_cfg.session.last_will.qos = 0;
+        mqtt_cfg.session.last_will.retain = false;
+        mqtt_cfg.session.keepalive = 10;
+        sprintf(mqtt_topic, "devices/%s/messages/events/", quarklink->deviceID);
+    }
+
     *client = esp_mqtt_client_init(&mqtt_cfg);
-    if (*client == NULL){
+    if (*client == NULL) {
         return -1;
     }
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
@@ -289,7 +310,7 @@ void getting_started_task(void *pvParameter) {
     quarklink_return_t ql_status = QUARKLINK_ERROR;
 
     esp_mqtt_client_handle_t mqtt_client = NULL;
-    char mqtt_topic[MAX_TOPIC_LENGTH] = "";
+    char message[MAX_MESSAGE_LENGTH] = "";
     uint32_t round = 0;
 
     while (1) {
@@ -401,9 +422,9 @@ void getting_started_task(void *pvParameter) {
             if (strcmp(mqtt_topic, "") == 0) {
                 sprintf(mqtt_topic, "topic/%s", quarklink.deviceID);
             }
-            // len = 0 and data not NULL is valid, length is determined by strlen
-            sprintf(data, "%d", count++);
-            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, data, 0, 0, 0);
+            sprintf(message, "{\"count\":%d}", count);
+            count++;
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, message, 0, 0, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
