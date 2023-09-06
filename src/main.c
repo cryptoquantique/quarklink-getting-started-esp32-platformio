@@ -34,7 +34,6 @@ static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
 
 static int count = 0;
-char data[10] = "";
 
 static const char *TAG = "quarklink-getting-started";
 quarklink_context_t quarklink;
@@ -423,19 +422,19 @@ void getting_started_task(void *pvParameter) {
                 sprintf(mqtt_topic, "topic/%s", quarklink.deviceID);
             }
             sprintf(message, "{\"count\":%d}", count);
-            count++;
             int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic, message, 0, 0, 0);
             if (msg_id < 0) {
                 ESP_LOGE(TAG, "Failed to publish to %s (ret %d)", mqtt_topic, msg_id);
             }
             else {
-                ESP_LOGI(TAG, "Published data=%s, to %s", data, mqtt_topic);
+                ESP_LOGI(TAG, "Published data=%d to %s", count, mqtt_topic);
                 #if (LED_COLOUR)
                 led_strip_clear(led_strip);
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 led_set_colour(led_strip, LED_COLOUR);
                 #endif
             }
+            count++;
         }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
