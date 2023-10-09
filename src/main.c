@@ -2,13 +2,11 @@
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "esp_log.h"
-#include "esp_https_ota.h"
 
 #include "quarklink.h"
 #include "led_strip.h"
 
 #include "mqtt_client.h"
-#include "esp_ota_ops.h"
 
 #define LED_STRIP_BLINK_GPIO  8 // GPIO assignment
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
@@ -22,7 +20,7 @@
 #define GREEN   2
 #define BLUE    3
 
-/* FreeRTOS event group to signal when we are connected*/
+/* FreeRTOS event group to signal when we are connected */
 static EventGroupHandle_t s_wifi_event_group;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -38,7 +36,7 @@ static int count = 0;
 static const char *TAG = "quarklink-getting-started";
 quarklink_context_t quarklink;
 
-/* Intervals*/
+/* Intervals */
 // How often to check for status, in s
 static const int STATUS_CHECK_INTERVAL = 20;
 // mqtt publish interval in s
@@ -49,7 +47,7 @@ static const int MQTT_PUBLISH_INTERVAL = 5;
 #define MAX_MESSAGE_LENGTH  30
 char mqtt_topic[MAX_TOPIC_LENGTH] = "";
 
-/*Variable to track if the MQTT Task is running*/
+/* Variable to track if the MQTT Task is running */
 static bool is_running = false;
 
 #if (LED_COLOUR)
@@ -62,51 +60,23 @@ void led_set_colour(led_strip_handle_t strip, int colour);
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "Connection to the AP failed");
         if (s_retry_num < 10) {
             esp_wifi_connect();
             s_retry_num++;
             ESP_LOGI(TAG, "Retry to connect to the AP (%d/%d)", s_retry_num, 10);
-        } else {
+        }
+        else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    }
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        // ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        // ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-    else if (event_base == ESP_HTTPS_OTA_EVENT) {
-        switch (event_id) {
-            case ESP_HTTPS_OTA_START:
-                ESP_LOGI(TAG, "OTA started");
-                break;
-            case ESP_HTTPS_OTA_CONNECTED:
-                ESP_LOGI(TAG, "Connected to server");
-                break;
-            case ESP_HTTPS_OTA_GET_IMG_DESC:
-                ESP_LOGI(TAG, "Reading Image Description");
-                break;
-            case ESP_HTTPS_OTA_VERIFY_CHIP_ID:
-                ESP_LOGI(TAG, "Verifying chip id of new image: %d", *(esp_chip_id_t *)event_data);
-                break;
-            case ESP_HTTPS_OTA_DECRYPT_CB:
-                ESP_LOGI(TAG, "Callback to decrypt function");
-                break;
-            case ESP_HTTPS_OTA_WRITE_FLASH:
-                ESP_LOGD(TAG, "Writing to flash: %d written", *(int *)event_data);
-                break;
-            case ESP_HTTPS_OTA_UPDATE_BOOT_PARTITION:
-                ESP_LOGI(TAG, "Boot partition updated. Next Partition: %d", *(esp_partition_subtype_t *)event_data);
-                break;
-            case ESP_HTTPS_OTA_FINISH:
-                ESP_LOGI(TAG, "OTA finish");
-                break;
-            case ESP_HTTPS_OTA_ABORT:
-                ESP_LOGI(TAG, "OTA abort");
-                break;
-        }
     }
 }
 
@@ -120,53 +90,54 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
  * @param event_id The id for the received event.
  * @param event_data The data for the event, esp_mqtt_event_handle_t.
  */
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
-{
-    ESP_LOGI(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+    ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
-        ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+        ESP_LOGD(TAG, "MQTT_EVENT_CONNECTED");
         msg_id = esp_mqtt_client_subscribe(client, "topic/#", 0);
-        ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+        ESP_LOGD(TAG, "sent subscribe successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
-        ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+        ESP_LOGD(TAG, "MQTT_EVENT_DISCONNECTED");
         break;
     case MQTT_EVENT_SUBSCRIBED:
-        ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
+        ESP_LOGD(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
-        ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
+        ESP_LOGD(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_PUBLISHED:
-        ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+        ESP_LOGD(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_DATA:
-        ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
-        ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
+        ESP_LOGD(TAG, "MQTT_EVENT_DATA");
+        ESP_LOGD(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
+        ESP_LOGD(TAG, "DATA=%.*s", event->data_len, event->data);
         break;
     case MQTT_EVENT_BEFORE_CONNECT:
-        ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
+        ESP_LOGD(TAG, "MQTT_EVENT_BEFORE_CONNECT");
         break;
     case MQTT_EVENT_ERROR:
-        ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+        ESP_LOGD(TAG, "MQTT_EVENT_ERROR");
         if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-            ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-            ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-            ESP_LOGI(TAG, "Last captured errno : %d (%s)",  event->error_handle->esp_transport_sock_errno,
+            ESP_LOGD(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
+            ESP_LOGD(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
+            ESP_LOGD(TAG, "Last captured errno : %d (%s)",  event->error_handle->esp_transport_sock_errno,
                      strerror(event->error_handle->esp_transport_sock_errno));
-        } else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
-            ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-        } else {
-            ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
+        }
+        else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+            ESP_LOGD(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
+        }
+        else {
+            ESP_LOGD(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
         }
         break;
     default:
-        ESP_LOGI(TAG, "Other event id:%d", event->event_id);
+        ESP_LOGD(TAG, "Other event id:%d", event->event_id);
         break;
     }
 }
@@ -186,14 +157,14 @@ bool isAzureCentral(quarklink_context_t *quarklink) {
  * \param[out] client    The handle of the mqtt client created
  * \return int 0 for success
  */
-int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
+int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client) {
     if (is_running) {
         return 0;
     }
 
     static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
-    quarklink_return_t ret = quarklink_getDeviceKey(quarklink,deviceKey,QUARKLINK_MAX_KEY_LENGTH);
-    if (ret != QUARKLINK_SUCCESS){
+    quarklink_return_t ret = quarklink_getDeviceKey(quarklink, deviceKey, QUARKLINK_MAX_KEY_LENGTH);
+    if (ret != QUARKLINK_SUCCESS) {
         ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
         return -1;
     }
@@ -205,10 +176,10 @@ int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client){
             .address.transport = MQTT_TRANSPORT_OVER_SSL,
             .verification.certificate = quarklink->iotHubRootCert
         },
-        .credentials ={
+        .credentials = {
             .client_id = quarklink->deviceID,
             .authentication = {
-                .certificate= quarklink->deviceCert,
+                .certificate = quarklink->deviceCert,
                 .key = deviceKey,
             }
         }
@@ -271,7 +242,7 @@ void wifi_init_sta(void) {
     esp_wifi_get_config(WIFI_IF_STA, &wifi_config);
 
     ESP_ERROR_CHECK(esp_wifi_start() );
-    ESP_LOGI(TAG, "wifi_init_sta finished.");
+    ESP_LOGD(TAG, "wifi_init_sta finished.");
 
     /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
      * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
@@ -284,16 +255,16 @@ void wifi_init_sta(void) {
     /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
      * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID: %s",
-                 wifi_config.sta.ssid);
-    } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID: %s",
-                 wifi_config.sta.ssid);
+        ESP_LOGI(TAG, "connected to ap SSID: %s", wifi_config.sta.ssid);
+    }
+    else if (bits & WIFI_FAIL_BIT) {
+        ESP_LOGI(TAG, "Failed to connect to SSID: %s", wifi_config.sta.ssid);
         ESP_LOGI(TAG, "Reached maximum retry limit for connection to the AP");
         ESP_LOGI(TAG, "Restarting");    
         vTaskDelay(3000 / portTICK_PERIOD_MS);
         esp_restart();
-    } else {
+    }
+    else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
 
@@ -304,7 +275,6 @@ void wifi_init_sta(void) {
 }
 
 void getting_started_task(void *pvParameter) {
-
     quarklink_return_t ql_ret;
     quarklink_return_t ql_status = QUARKLINK_ERROR;
 
@@ -322,6 +292,10 @@ void getting_started_task(void *pvParameter) {
             switch (ql_status) {
                 case QUARKLINK_STATUS_ENROLLED:
                     ESP_LOGI(TAG, "Enrolled");
+                    if (strcmp(quarklink.iotHubEndpoint, "") == 0) {
+                        ESP_LOGI(TAG, "No enrolment info saved. Re-enrolling");
+                        ql_status = QUARKLINK_STATUS_NOT_ENROLLED;
+                    }
                     break;
                 case QUARKLINK_STATUS_FWUPDATE_REQUIRED:
                     ESP_LOGI(TAG, "Firmware Update required");
@@ -357,7 +331,7 @@ void getting_started_task(void *pvParameter) {
                     case QUARKLINK_SUCCESS:
                         ESP_LOGI(TAG, "Successfully enrolled!");
                         ql_ret = quarklink_persistEnrolmentContext(&quarklink);
-                        if (ql_ret != QUARKLINK_SUCCESS){
+                        if (ql_ret != QUARKLINK_SUCCESS) {
                             ESP_LOGW(TAG, "Failed to store the Enrolment context");
                         }
                         #if (LED_COLOUR)
@@ -443,15 +417,19 @@ void getting_started_task(void *pvParameter) {
 }
 
 #if (LED_COLOUR)
-void led_set_colour(led_strip_handle_t strip, int colour){
-    if (colour == RED) led_strip_set_pixel(led_strip, 0, 255, 0, 0);
-    else if (colour == GREEN) led_strip_set_pixel(led_strip, 0, 0, 255, 0);
-    else if (colour == BLUE) led_strip_set_pixel(led_strip, 0, 0, 0, 255);
-    else led_strip_set_pixel(led_strip, 0, 0, 0, 0);
+void led_set_colour(led_strip_handle_t strip, int colour) {
+    if (colour == RED)
+        led_strip_set_pixel(led_strip, 0, 10, 0, 0);
+    else if (colour == GREEN)
+        led_strip_set_pixel(led_strip, 0, 0, 10, 0);
+    else if (colour == BLUE)
+        led_strip_set_pixel(led_strip, 0, 0, 0, 10);
+    else
+        led_strip_set_pixel(led_strip, 0, 0, 0, 0);
     led_strip_refresh(led_strip);
 }
 
-void set_led(void){
+void set_led(void) {
 
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
@@ -472,9 +450,8 @@ void set_led(void){
 }
 #endif
 
-void app_main(void)
-{
-    ESP_LOGI(TAG, "quarklink-getting-started-esp32\n");
+void app_main(void) {
+    ESP_LOGI(TAG, "quarklink-getting-started-esp32");
     
     #if (LED_COLOUR)
         set_led(); // esp32-c3 RGB LED
@@ -486,7 +463,7 @@ void app_main(void)
     // Need to initialise a local quarklink_context_t in order to retrieve the stored one. Doesn't matter what values it is given.
     quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 1, "");
     ql_ret = quarklink_loadStoredContext(&quarklink);
-        if (ql_ret == QUARKLINK_CONTEXT_NO_ENROLMENT_INFO_STORED) {
+    if (ql_ret == QUARKLINK_CONTEXT_NO_ENROLMENT_INFO_STORED) {
         // Should get here the first time after provisioning as the device hasn't enrolled yet
         ESP_LOGI(TAG, "No QuarkLink enrolment info stored");
     }

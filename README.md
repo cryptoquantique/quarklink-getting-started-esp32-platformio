@@ -4,7 +4,7 @@ This project provides instructions on how to get started with QuarkLink to make 
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
-See the [QuarkLink Getting Started Guide](https://github.com/cryptoquantique/cryptoquantique.github.io/blob/main/QuarkLink%20Ignite%20Getting%20Started%20Guide%20V1.00.pdf) for more detailed information on how to use this example project.
+See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarkLink_Ignite_Getting_Started_Guide.pdf) for more detailed information on how to use this example project.
 
 ## Requirements
 
@@ -15,12 +15,12 @@ There are a few requirements needed in order to get started with this project:
     You can verify PlatformIO is installed with ```pio --version``` command:
     ```sh
     >pio --version
-    PlatformIO Core, version 6.1.7
+    PlatformIO Core, version 6.1.11
     ``` 
 - **quarklink-client libraries**
     The quarklink-client library comes in the form of compiled binaries and can be found in the [quarklink-binaries repository](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-client).  
     Copy the required files into the `lib` folder of this project.  
-    For example, if building for `esp32-c3`: copy the file `libquarklink-client-esp32-c3-v1.3.0.a` to the local clone of this repository, inside `lib`.
+    For example, if building for `esp32-c3`: copy the file `libquarklink-client-esp32-c3-v1.3.3.a` to the local clone of this repository, inside `lib`.
 
 ## Pre-built binaries
 
@@ -32,10 +32,11 @@ These binaries can be programmed into the ESP32 device using the QuarkLink provi
 To build the project use the ```pio run``` command:
 ```sh
 > pio run
-Processing esp32-c3-vefuse (board: esp32-c3-devkitm-1; platform: espressif32 @6.3.2; framework: espidf)
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------Verbose mode can be enabled via `-v, --verbose` option                                                                                                                                                                                                            
+Processing esp32-c3-vefuse (board: esp32-c3-devkitm-1; platform: espressif32 @6.4.0; framework: espidf)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------Verbose mode can be enabled via `-v, --verbose` option                                                                     
+. . .                                                                                                                               
 CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-c3-devkitm-1.html
-PLATFORM: Espressif 32 (6.3.2) > Espressif ESP32-C3-DevKitM-1
+PLATFORM: Espressif 32 (6.4.0) > Espressif ESP32-C3-DevKitM-1
 HARDWARE: ESP32C3 160MHz, 320KB RAM, 4MB Flash
 
 . . .
@@ -64,7 +65,7 @@ firmware.bin
 
 The ```firmware.bin``` file is what you upload to QuarkLink. Click on the "Firmwares" option of the QuarkLink main menu to access the uploading function.  
 Once uploaded to QuarkLink configure your Batch with the new firmware image and it will be automatically downloaded to the ESP32.  
-See the [QuarkLink Getting Started Guide](https://github.com/cryptoquantique/cryptoquantique.github.io/blob/main/QuarkLink%20Ignite%20Getting%20Started%20Guide%20V1.00.pdf) for more details.
+See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarkLink_Ignite_Getting_Started_Guide.pdf) for more details.
 
 ## Configurations
 There are currently two configurations available for the firmware:
@@ -87,13 +88,13 @@ Example:
 ```ini
 [env:esp32-c3-release]
 board = esp32-c3-devkitm-1
-build_flags = -Llib -lquarklink-client-esp32-c3-v1.3.0 -Iinclude
+build_flags = -Llib -lquarklink-client-esp32-c3-v1.4.0 -Iinclude
 ```
 Becomes:
 ```ini
 [env:esp32-c3-release]
 board = esp32-c3-devkitm-1
-build_flags = -Llib -lquarklink-client-esp32-c3-v1.3.0-debug -Iinclude
+build_flags = -Llib -lquarklink-client-esp32-c3-v1.4.0-debug -Iinclude
 ```
 
 ## Building project version with RGB LED
