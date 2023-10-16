@@ -1,12 +1,13 @@
 #include <freertos/FreeRTOS.h>
-#include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "esp_log.h"
-
-#include "quarklink.h"
+#include "esp_wifi.h"
+#include "mqtt_client.h"
 #include "led_strip.h"
 
-#include "mqtt_client.h"
+#include "quarklink.h"
+#include "quarklink_extras.h"
+#include "rsa_sign_alt.h"
 
 #define LED_STRIP_BLINK_GPIO  8 // GPIO assignment
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
@@ -161,13 +162,6 @@ int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client) 
     if (is_running) {
         return 0;
     }
-
-    static char deviceKey[QUARKLINK_MAX_KEY_LENGTH];
-    quarklink_return_t ret = quarklink_getDeviceKey(quarklink, deviceKey, QUARKLINK_MAX_KEY_LENGTH);
-    if (ret != QUARKLINK_SUCCESS) {
-        ESP_LOGE(TAG, "quarklink_getDeviceKey Error");
-        return -1;
-    }
     
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
@@ -180,10 +174,14 @@ int mqtt_init(quarklink_context_t *quarklink, esp_mqtt_client_handle_t* client) 
             .client_id = quarklink->deviceID,
             .authentication = {
                 .certificate = quarklink->deviceCert,
-                .key = deviceKey,
             }
         }
     };
+
+    /* Using Digital Signature module */
+    static esp_ds_data_ctx_t ds_data;
+    quarklink_esp32_getDSData(&ds_data);
+    mqtt_cfg.credentials.authentication.ds_data = &ds_data;
 
     if (isAzure(quarklink) || isAzureCentral(quarklink)) {
         char userName[256] = "";
