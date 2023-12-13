@@ -9,7 +9,11 @@
 #include "quarklink_extras.h"
 #include "rsa_sign_alt.h"
 
-#define LED_STRIP_BLINK_GPIO  8 // GPIO assignment
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LED_STRIP_BLINK_GPIO  48 // GPIO assignment esp32-s3
+#else
+#define LED_STRIP_BLINK_GPIO  8 // GPIO assignment esp32-c3
+#endif
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000) // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 
@@ -452,7 +456,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "quarklink-getting-started-esp32");
     
     #if (LED_COLOUR)
-        set_led(); // esp32-c3 RGB LED
+        set_led(); // esp32-c3 and esp32-s3 RGB LED
         led_set_colour(led_strip, LED_COLOUR); // LED_RED or LED_GREEN or LED_BLUE
     #endif
 

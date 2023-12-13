@@ -1,6 +1,6 @@
 # QuarkLink Getting Started
 
-This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32 ([esp32-c3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/hw-reference/esp32c3/user-guide-devkitm-1.html)).
+This project provides instructions on how to get started with QuarkLink to make a secure IoT device using an ESP32 ([esp32-c3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/hw-reference/esp32c3/user-guide-devkitm-1.html)) or an ([esp32-s3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/esp32s3/user-guide-devkitc-1.html)).
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
@@ -80,6 +80,8 @@ There are several configurations available for this firmware, defined in the pla
 ---|---|---|
 |esp32-c3|Digital Signature peripheral|dev / virtual efuses|
 |esp32-c3|Digital Signature peripheral|release|
+|esp32-s3|Digital Signature peripheral|dev / virtual efuses|
+|esp32-s3|Digital Signature peripheral|release|
 
 
 When building, make sure to choose the same configuration that the device was provisioned with via QuarkLink.
@@ -110,7 +112,7 @@ build_flags = -Llib -lquarklink-client-esp32-c3-ds-v1.4.0-debug -Iinclude
 ```
 
 ## Building project version with RGB LED
-This is currently supported only for the esp32-c3 board.
+This is currently supported for the esp32-c3 and esp32-s3 boards.
 
 To enable the use of the RGB LED, you need to configure its colour before building the project with ```pio run```. This is done by setting the following environment variable:
 ```PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=<COLOUR>"```
