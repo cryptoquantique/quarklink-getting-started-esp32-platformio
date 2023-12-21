@@ -4,7 +4,7 @@ This project provides instructions on how to get started with QuarkLink to make 
 
 The result is an ESP32 that is using secure boot, flash encryption, has a Root-of-Trust, and which can only be updated Over-The-Air with firmware signed by a key from the QuarkLink Hardware Security Module (HSM).
 
-See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarkLink_Ignite_Getting_Started_Guide.pdf) for more detailed information on how to use this example project.
+See the [QuarkLink Getting Started Guide](https://docs.quarklink.io/docs/getting-started-with-quarklink-ignite) for more detailed information on how to use this example project.
 
 ## Requirements
 
@@ -68,7 +68,7 @@ firmware.bin
 
 The ```firmware.bin``` file is what you upload to QuarkLink. Click on the "Firmwares" option of the QuarkLink main menu to access the uploading function.  
 Once uploaded to QuarkLink configure your Batch with the new firmware image and it will be automatically downloaded to the ESP32.  
-See the [QuarkLink Getting Started Guide](https://cryptoquantique.github.io/QuarkLink_Ignite_Getting_Started_Guide.pdf) for more details.
+See the [QuarkLink Getting Started Guide](https://docs.quarklink.io/docs/getting-started-with-quarklink-ignite) for more details.
 
 >**Note:** the `pio run` command will build all the configurations (envs) that are listed as part of `default_envs` at the top of the [platformio.ini](./platformio.ini) file. To build a specific env, either add it to this list as the sole item or build with the command `pio run -e <env_name>`
 where `<env_name>` is the desired configuration (e.g. `esp32-c3-ds-release`).
