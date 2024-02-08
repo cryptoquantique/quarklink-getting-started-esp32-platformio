@@ -11,7 +11,9 @@
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 #define LED_STRIP_BLINK_GPIO  48 // GPIO assignment esp32-s3
-#else
+#elif CONFIG_IDF_TARGET_ESP32S2
+#define LED_STRIP_BLINK_GPIO  18 // GPIO assignment esp32-s2
+#else 
 #define LED_STRIP_BLINK_GPIO  8 // GPIO assignment esp32-c3
 #endif
 #define LED_STRIP_LED_NUMBERS 1 // LED numbers in the strip
