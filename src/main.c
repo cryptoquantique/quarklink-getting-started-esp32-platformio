@@ -326,8 +326,10 @@ void getting_started_task(void *pvParameter) {
                 ql_status == QUARKLINK_STATUS_REVOKED) {
                 /* Reset mqtt */
                 strcpy(mqtt_topic, "");
-                esp_mqtt_client_stop(mqtt_client);
-                is_running = false;
+                if (is_running) {
+                    esp_mqtt_client_stop(mqtt_client);
+                    is_running = false;
+                }
                 /* enroll */
                 ESP_LOGI(TAG, "Enrol to %s", quarklink.endpoint);
                 ql_ret = quarklink_enrol(&quarklink);
