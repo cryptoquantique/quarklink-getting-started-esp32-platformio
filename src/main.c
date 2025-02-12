@@ -492,5 +492,5 @@ void app_main(void) {
 
     wifi_init_sta();
 
-    xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 8, NULL, 5, NULL);
+    xTaskCreate(&getting_started_task, "getting_started_task", 1024 * 18, NULL, 5, NULL);
 }

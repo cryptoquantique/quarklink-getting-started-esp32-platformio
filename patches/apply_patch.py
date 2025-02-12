@@ -7,11 +7,12 @@ Import("env")
 
 FRAMEWORK_DIR = env.PioPlatform().get_package_dir("framework-espidf")
 PATCHES = {
-    'ds': "ota_ds_peripheral.patch",
-    'ecc608': "esp-tls.patch"
+    'ds_idf': "ds_idf.patch",
+    'ds_mbedtls': "ds_mbedtls.patch",
+    'mlkem_mbedtls': "mlkem_mbedtls.patch"
 }
 
-def apply_patch(patch_file):
+def apply_patch(patch_file, submodule_dir = ""):
     # Find patch command depending on OS
     if env['HOST_OS'].startswith("win"):
         # OS is Windows, use patch from git
@@ -43,10 +44,11 @@ def apply_patch(patch_file):
         raise SystemExit(f"Patch file {full_patch} not found")
 
     # patch file only if we didn't do it before
-    patchflag_path = join(FRAMEWORK_DIR, f".{patch_file}-done")
+    root_dir = join(FRAMEWORK_DIR,submodule_dir)
+    patchflag_path = join(root_dir, f".{patch_file}-done")
     if not isfile(patchflag_path):
-        print(f"Applying patch for {full_patch} to {FRAMEWORK_DIR}")
-        rc = env.Execute("\"%s\" -p1 -i %s -d %s" % (GIT_PATCH_CMD, full_patch, FRAMEWORK_DIR))
+        print(f"Applying patch for {full_patch} to {root_dir}")
+        rc = env.Execute("\"%s\" -p1 -i %s -d %s" % (GIT_PATCH_CMD, full_patch, root_dir))
         if rc != 0:
             raise SystemExit("Failed to apply patch")
 
@@ -60,4 +62,6 @@ def apply_patch(patch_file):
         print("Patch has already been applied")
     
 # Apply all patches, always
-apply_patch(PATCHES['ds'])
+apply_patch(PATCHES['ds_idf'])
+apply_patch(PATCHES['ds_mbedtls'], "components/mbedtls/mbedtls")
+apply_patch(PATCHES['mlkem_mbedtls'], "components/mbedtls/mbedtls")

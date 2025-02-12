@@ -15,7 +15,7 @@ There are a few requirements needed in order to get started with this project:
     You can verify PlatformIO is installed with ```pio --version``` command:
     ```sh
     >pio --version
-    PlatformIO Core, version 6.1.11
+    PlatformIO Core, version 6.9.0
     ``` 
 - **quarklink-client libraries**
     The quarklink-client library comes in the form of compiled binaries and can be found in the [quarklink-binaries repository](https://github.com/cryptoquantique/quarklink-binaries/tree/main/quarklink-client).  
@@ -36,11 +36,10 @@ Processing esp32-c3-ds-vefuse (board: esp32-c3-devkitm-1; platform: espressif32 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------Verbose mode can be enabled via `-v, --verbose` option
 Detected OS: Windows
 Found patch command at C:\Program Files\Git\usr\bin\patch.exe
-Project dir: C:\quarklink-getting-started-esp32-platformio       
-Patch file: ota_ds_peripheral.patch
-Patch has already been applied
+Project dir: C:\quarklink-getting-started-esp32-platformio  
+. . .     
 CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-c3-devkitm-1.html
-PLATFORM: Espressif 32 (6.4.0) > Espressif ESP32-C3-DevKitM-1
+PLATFORM: Espressif 32 (6.9.0) > Espressif ESP32-C3-DevKitM-1
 HARDWARE: ESP32C3 160MHz, 320KB RAM, 4MB Flash
 
 . . .
@@ -137,5 +136,30 @@ To reset the LED configuration and disable the LED simply reset the variable:
 
 The device will need to be un-plugged from power for the change to take effect.
 
+## ML-KEM-768(X25519Kyber768Draft00) support
+Hybrid Post quantum Cryptography features are now supported with this getting started project.  
+To enable this feature TLS1.3 must be enabled so that ML-KEM will be used in the TLS handshake process.  
+Below version of the platformio must be configured in platformio.ini to make use of ESP-IDF 5.3.1 which has the TLS1.3 support.  
+`platform = espressif32 @6.9.0 `  
+Below patch files are available in the  patches folder and they can be applied if the correct version of platformIO is being used.  They will be get applied automatically by the line 12 in the platformio.ini `extra_scripts = pre:patches/apply_patch.py` 
+
+`mlkem_mbedtls.patch` : This patch is used for enabling new ML-KEM related functionality in the hanshake process.  
+`ds_idf.patch` and `ds_mbedtls.patch` : TLS1.3 uses PKCS#1 v2.1 and these patch files are appling the code changes to enable that when the Digital Signimng pheripheral is being used.
+
+Once the build is done along with the patches the binaries can be used for hybrid PQC enabled communication.  
+sample output for successfuly applied patches:
+```
+. . .
+Patch file: ds_idf.patch  
+Patch has already been applied  
+. . .  
+Patch file: mlkem_mbedtls.patch  
+Patch has already been applied  
+. . .  
+Patch file: ds_mbedtls.patch  
+Patch has already been applied  
+. . .  
+```
 ## Further Notes
-**Custom Partition Table:** users might be interested in using their own partition table with QuarkLink. Currently, support for this feature is only for paid tiers, however users are welcome to request a custom partition table via the GitHub issues on this project.
+**Custom Partition Table:** users might be interested in using their own partition table with QuarkLink. Currently, support for this feature is only for paid tiers, however users are welcome to request a custom partition table via the GitHub issues on this project.  
+**Firmware size reduction:** Users may wanted to reduce the firmware footprint for this getting started program. This can be achieved by enabling `CONFIG_COMPILER_OPTIMIZATION_SIZE=y` in the sdkconfig file. Moreover further memory optimization techniques can be found in [this link](https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-guides/performance/size.html )
