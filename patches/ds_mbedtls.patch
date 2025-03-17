@@ -1,79 +1,30 @@
-From ff32056683ccd427f30ccd5a636b85f346e66cad Mon Sep 17 00:00:00 2001
-From: Mayuran Sivanesan <MSivanesan@cryptoquantique.com>
-Date: Wed, 11 Dec 2024 12:12:04 +0000
-Subject: [PATCH 1/2] basic changes
-
----
- include/mbedtls/pk.h |  6 ++++++
- library/pk.c         | 35 +++++++++++++++++++++++++++++++++++
- library/pk_wrap.c    | 21 +++++++++++++++++++++
- library/pk_wrap.h    |  8 ++++++++
- 4 files changed, 70 insertions(+)
-
-diff --git a/include/mbedtls/pk.h b/include/mbedtls/pk.h
-index 52f4cc6c9e80..93a56fb8756b 100644
---- a/include/mbedtls/pk.h
-+++ b/include/mbedtls/pk.h
-@@ -418,6 +418,12 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
-                              mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
-                              mbedtls_pk_rsa_alt_sign_func sign_func,
-                              mbedtls_pk_rsa_alt_key_len_func key_len_func);
-+int mbedtls_pk_setup_rsa_pss(mbedtls_pk_context *ctx, void *key,
-+                             mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
-+                             mbedtls_pk_rsa_alt_sign_func sign_func,
-+                             mbedtls_pk_rsa_alt_key_len_func key_len_func);
-+
-+							 
- #endif /* MBEDTLS_PK_RSA_ALT_SUPPORT */
- 
- /**
 diff --git a/library/pk.c b/library/pk.c
-index 3fe51ea34fae..ad32186ce2c8 100644
+index 3fe51ea34fae..d5a333e075c0 100644
 --- a/library/pk.c
 +++ b/library/pk.c
-@@ -223,6 +223,33 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
- 
-     return 0;
- }
-+
-+int mbedtls_pk_setup_rsa_pss(mbedtls_pk_context *ctx, void *key,
-+                             mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
-+                             mbedtls_pk_rsa_alt_sign_func sign_func,
-+                             mbedtls_pk_rsa_alt_key_len_func key_len_func)
-+{
-+    mbedtls_rsa_pss_context *rsa_pss;
-+    const mbedtls_pk_info_t *info = &mbedtls_rsa_pss_info_for_ds;
-+    if (ctx->pk_info != NULL) {
-+        return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
-+    }
-+
-+    if ((ctx->pk_ctx = info->ctx_alloc_func()) == NULL) {
-+        return MBEDTLS_ERR_PK_ALLOC_FAILED;
-+    }
-+
-+    ctx->pk_info = info;
-+
-+    rsa_pss = (mbedtls_rsa_pss_context *) ctx->pk_ctx;
-+
-+    rsa_pss->key = key;
-+    rsa_pss->decrypt_func = decrypt_func;
-+    rsa_pss->sign_func = sign_func;
-+    rsa_pss->key_len_func = key_len_func;
-+
-+    return 0;
-+}
- #endif /* MBEDTLS_PK_RSA_ALT_SUPPORT */
- 
- /*
-@@ -1309,6 +1336,14 @@ int mbedtls_pk_sign_ext(mbedtls_pk_type_t pk_type,
+@@ -202,8 +202,11 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
+                              mbedtls_pk_rsa_alt_key_len_func key_len_func)
+ {
+     mbedtls_rsa_alt_context *rsa_alt;
++#ifdef CONFIG_MBEDTLS_SSL_PROTO_TLS1_3
+     const mbedtls_pk_info_t *info = &mbedtls_rsa_alt_info;
+-
++#else
++	const mbedtls_pk_info_t *info = &mbedtls_rsa_pss_info_for_ds;
++#endif
+     if (ctx->pk_info != NULL) {
+         return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
+     }
+@@ -1309,6 +1312,15 @@ int mbedtls_pk_sign_ext(mbedtls_pk_type_t pk_type,
          return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
      }
  
 +	if(pk_type == MBEDTLS_PK_RSASSA_PSS)
 +	{
-+		mbedtls_rsa_pss_context *rsa_pss = (mbedtls_rsa_pss_context *) ctx->pk_ctx;
-+		int ret_pss = rsa_pss->sign_func(ctx, f_rng, p_rng, md_alg, hash_len, hash, sig); 
-+		*sig_len = 384;
++		mbedtls_rsa_alt_context *rsa_pss = (mbedtls_rsa_alt_context *) ctx->pk_ctx;
++		int ret_pss = rsa_pss->sign_func(ctx, f_rng, p_rng, md_alg, hash_len, hash, sig);
++		if(ret_pss == 0) *sig_len = 384;
++		else *sig_len = 0;
 +		return ret_pss;
 +	}
 +
@@ -113,21 +64,10 @@ index 19196b559ae9..434766497f88 100644
  
  #if defined(MBEDTLS_PK_HAVE_ECC_KEYS)
 diff --git a/library/pk_wrap.h b/library/pk_wrap.h
-index be096da53ac8..37cf77c2f081 100644
+index be096da53ac8..7ff3fd0996e7 100644
 --- a/library/pk_wrap.h
 +++ b/library/pk_wrap.h
-@@ -102,10 +102,18 @@ typedef struct {
-     mbedtls_pk_rsa_alt_sign_func sign_func;
-     mbedtls_pk_rsa_alt_key_len_func key_len_func;
- } mbedtls_rsa_alt_context;
-+
-+typedef struct {
-+    void *key;
-+    mbedtls_pk_rsa_alt_decrypt_func decrypt_func;
-+    mbedtls_pk_rsa_alt_sign_func sign_func;
-+    mbedtls_pk_rsa_alt_key_len_func key_len_func;
-+} mbedtls_rsa_pss_context;
- #endif
+@@ -106,6 +106,7 @@ typedef struct {
  
  #if defined(MBEDTLS_RSA_C)
  extern const mbedtls_pk_info_t mbedtls_rsa_info;
@@ -135,115 +75,3 @@ index be096da53ac8..37cf77c2f081 100644
  #endif
  
  #if defined(MBEDTLS_PK_HAVE_ECC_KEYS)
-
-From c4acfaab12073a6a4a8ba9986d50720dee659fe5 Mon Sep 17 00:00:00 2001
-From: Mayuran Sivanesan <MSivanesan@cryptoquantique.com>
-Date: Thu, 12 Dec 2024 10:52:23 +0000
-Subject: [PATCH 2/2] code cleanup
-
----
- include/mbedtls/pk.h |  6 ------
- library/pk.c         | 39 ++++++++-------------------------------
- library/pk_wrap.h    |  7 -------
- 3 files changed, 8 insertions(+), 44 deletions(-)
-
-diff --git a/include/mbedtls/pk.h b/include/mbedtls/pk.h
-index 93a56fb8756b..52f4cc6c9e80 100644
---- a/include/mbedtls/pk.h
-+++ b/include/mbedtls/pk.h
-@@ -418,12 +418,6 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
-                              mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
-                              mbedtls_pk_rsa_alt_sign_func sign_func,
-                              mbedtls_pk_rsa_alt_key_len_func key_len_func);
--int mbedtls_pk_setup_rsa_pss(mbedtls_pk_context *ctx, void *key,
--                             mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
--                             mbedtls_pk_rsa_alt_sign_func sign_func,
--                             mbedtls_pk_rsa_alt_key_len_func key_len_func);
--
--							 
- #endif /* MBEDTLS_PK_RSA_ALT_SUPPORT */
- 
- /**
-diff --git a/library/pk.c b/library/pk.c
-index ad32186ce2c8..d5a333e075c0 100644
---- a/library/pk.c
-+++ b/library/pk.c
-@@ -202,8 +202,11 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
-                              mbedtls_pk_rsa_alt_key_len_func key_len_func)
- {
-     mbedtls_rsa_alt_context *rsa_alt;
-+#ifdef CONFIG_MBEDTLS_SSL_PROTO_TLS1_3
-     const mbedtls_pk_info_t *info = &mbedtls_rsa_alt_info;
--
-+#else
-+	const mbedtls_pk_info_t *info = &mbedtls_rsa_pss_info_for_ds;
-+#endif
-     if (ctx->pk_info != NULL) {
-         return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
-     }
-@@ -223,33 +226,6 @@ int mbedtls_pk_setup_rsa_alt(mbedtls_pk_context *ctx, void *key,
- 
-     return 0;
- }
--
--int mbedtls_pk_setup_rsa_pss(mbedtls_pk_context *ctx, void *key,
--                             mbedtls_pk_rsa_alt_decrypt_func decrypt_func,
--                             mbedtls_pk_rsa_alt_sign_func sign_func,
--                             mbedtls_pk_rsa_alt_key_len_func key_len_func)
--{
--    mbedtls_rsa_pss_context *rsa_pss;
--    const mbedtls_pk_info_t *info = &mbedtls_rsa_pss_info_for_ds;
--    if (ctx->pk_info != NULL) {
--        return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
--    }
--
--    if ((ctx->pk_ctx = info->ctx_alloc_func()) == NULL) {
--        return MBEDTLS_ERR_PK_ALLOC_FAILED;
--    }
--
--    ctx->pk_info = info;
--
--    rsa_pss = (mbedtls_rsa_pss_context *) ctx->pk_ctx;
--
--    rsa_pss->key = key;
--    rsa_pss->decrypt_func = decrypt_func;
--    rsa_pss->sign_func = sign_func;
--    rsa_pss->key_len_func = key_len_func;
--
--    return 0;
--}
- #endif /* MBEDTLS_PK_RSA_ALT_SUPPORT */
- 
- /*
-@@ -1338,9 +1314,10 @@ int mbedtls_pk_sign_ext(mbedtls_pk_type_t pk_type,
- 
- 	if(pk_type == MBEDTLS_PK_RSASSA_PSS)
- 	{
--		mbedtls_rsa_pss_context *rsa_pss = (mbedtls_rsa_pss_context *) ctx->pk_ctx;
--		int ret_pss = rsa_pss->sign_func(ctx, f_rng, p_rng, md_alg, hash_len, hash, sig); 
--		*sig_len = 384;
-+		mbedtls_rsa_alt_context *rsa_pss = (mbedtls_rsa_alt_context *) ctx->pk_ctx;
-+		int ret_pss = rsa_pss->sign_func(ctx, f_rng, p_rng, md_alg, hash_len, hash, sig);
-+		if(ret_pss == 0) *sig_len = 384;
-+		else *sig_len = 0;
- 		return ret_pss;
- 	}
- 
-diff --git a/library/pk_wrap.h b/library/pk_wrap.h
-index 37cf77c2f081..7ff3fd0996e7 100644
---- a/library/pk_wrap.h
-+++ b/library/pk_wrap.h
-@@ -102,13 +102,6 @@ typedef struct {
-     mbedtls_pk_rsa_alt_sign_func sign_func;
-     mbedtls_pk_rsa_alt_key_len_func key_len_func;
- } mbedtls_rsa_alt_context;
--
--typedef struct {
--    void *key;
--    mbedtls_pk_rsa_alt_decrypt_func decrypt_func;
--    mbedtls_pk_rsa_alt_sign_func sign_func;
--    mbedtls_pk_rsa_alt_key_len_func key_len_func;
--} mbedtls_rsa_pss_context;
- #endif
- 
- #if defined(MBEDTLS_RSA_C)
