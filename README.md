@@ -92,10 +92,14 @@ The default environment is `esp32-c3-ds-vefuse`, as can be seen from the [exampl
 >pio run -e esp32-c3-ds-release
 ```
 
->**Note:** It is assumed that the user has already familiarised with the benefits of using the *Digital Signature peripheral* and the difference between *virtual-efuse* and *release* during the QuarkLink provisioning process.  
-More information can be found as part of the espressif programming guide:
-\- [Digital Signature](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/ds.html)
+>**Note**  
+It is assumed that the user has already familiarised with the benefits of using the *Digital Signature peripheral* and the difference between *virtual-efuse* and *release* during the QuarkLink provisioning process.  
+More information can be found as part of the espressif programming guide:  
+\- [Digital Signature](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/ds.html)  
 \- [Virtual eFuses](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/efuse.html#virtual-efuses)
+
+>**⚠️ Important**  
+Updating a device from **vefuse** to **release** or vice-versa, will break the device. When performing an OTA update, make sure to select a firmware that is of the same type as the one provisioned.
 
 ### Debug
 All the environments can be updated to use the debug version of the QuarkLink client library if needed. In order to do this, open the file [platformio.ini](platformio.ini) and update the desired configuration `build_flags` option.  
@@ -127,7 +131,8 @@ Whereas on Unix systems the analogous command is:
 export PLATFORMIO_BUILD_FLAGS="-DLED_COLOUR=GREEN"
 ``` 
 
->**Note:** Currently supported colours are: GREEN and BLUE
+>**Note**  
+Currently supported colours are: GREEN and BLUE
 
 To reset the LED configuration and disable the LED simply reset the variable:
 ```sh
@@ -136,30 +141,18 @@ To reset the LED configuration and disable the LED simply reset the variable:
 
 The device will need to be un-plugged from power for the change to take effect.
 
-## ML-KEM-768(X25519Kyber768Draft00) support
-Hybrid Post quantum Cryptography features are now supported with this getting started project.  
-To enable this feature TLS1.3 must be enabled so that ML-KEM will be used in the TLS handshake process.  
-Below version of the platformio must be configured in platformio.ini to make use of ESP-IDF 5.3.1 which has the TLS1.3 support.  
-`platform = espressif32 @6.9.0 `  
-Below patch files are available in the  patches folder and they can be applied if the correct version of platformIO is being used.  They will be get applied automatically by the line 12 in the platformio.ini `extra_scripts = pre:patches/apply_patch.py` 
+## ML-KEM-768 support
+This project now supports hybrid Post-Quantum Cryptography using ML-KEM-768. Because hybrid key exchange is only supported in TLS1.3 and above, TLS1.3 has been enabled as part of the sdkconfig. Furthermore, ESP-IDF 5.3.1 or above must be used.
+In the directory [patches](./patches/) there are the patch files that apply the necessary changes to the esp-idf and mbedtls stacks, in order to enable ML-KEM-768.
+In particular:
+- `mlkem_mbedtls.patch`: applies to the mbedtls component, adds all the ML-KEM-768 related files and enables its use in handshake process. 
+- `ds_mbedtls.patch`: applies to the mbedtls component, updates Digital Signature specific functions.
+- `ds_idf.patch`: applies to esp-idf, updates Digital Signature peripheral specific files to add PKCS#1v2.1 (needed by TLS1.3) support vs 1.5.
 
-`mlkem_mbedtls.patch` : This patch is used for enabling new ML-KEM related functionality in the hanshake process.  
-`ds_idf.patch` and `ds_mbedtls.patch` : TLS1.3 uses PKCS#1 v2.1 and these patch files are appling the code changes to enable that when the Digital Signimng pheripheral is being used.
+The patches are applied automatically to the platformio esp-idf package via the `apply_patch.py` script (i.e. `extra_scripts = pre:patches/apply_patch.py` in `platformio.ini`).
 
-Once the build is done along with the patches the binaries can be used for hybrid PQC enabled communication.  
-sample output for successfuly applied patches:
-```
-. . .
-Patch file: ds_idf.patch  
-Patch has already been applied  
-. . .  
-Patch file: mlkem_mbedtls.patch  
-Patch has already been applied  
-. . .  
-Patch file: ds_mbedtls.patch  
-Patch has already been applied  
-. . .  
-```
+Once the patches have been applied and the application has been built successfully, the binaries can be used for hybrid PQC enabled communication.  
+
 ## Further Notes
 **Custom Partition Table:** users might be interested in using their own partition table with QuarkLink. Currently, support for this feature is only for paid tiers, however users are welcome to request a custom partition table via the GitHub issues on this project.  
 **Firmware size reduction:** Users may wanted to reduce the firmware footprint for this getting started program. This can be achieved by enabling `CONFIG_COMPILER_OPTIMIZATION_SIZE=y` in the sdkconfig file. Moreover further memory optimization techniques can be found in [this link](https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-guides/performance/size.html )
