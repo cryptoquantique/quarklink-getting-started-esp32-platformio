@@ -467,7 +467,7 @@ void app_main(void) {
     /* quarklink init */
     ESP_LOGI(TAG, "Loading stored QuarkLink context");
     // Need to initialise a local quarklink_context_t in order to retrieve the stored one. Doesn't matter what values it is given.
-    quarklink_return_t ql_ret = quarklink_init(&quarklink, "", 1, "");
+    quarklink_return_t ql_ret = quarklink_init(&quarklink, "placeholder.endpoint", "");
     ql_ret = quarklink_loadStoredContext(&quarklink);
     if (ql_ret == QUARKLINK_CONTEXT_NO_ENROLMENT_INFO_STORED) {
         // Should get here the first time after provisioning as the device hasn't enrolled yet
@@ -478,16 +478,14 @@ void app_main(void) {
         ESP_LOGE(TAG, "Failed to load stored QuarkLink context (%d)", ql_ret);
         // should not happen, restart and retry
         esp_restart();
-        // TODO provide some backup default values from Kconfig?
-        // if (ql_ret == QUARKLINK_CONTEXT_NO_CREDENTIALS_STORED || ql_ret == QUARKLINK_CONTEXT_NOTHING_STORED) {
-        //     ESP_LOGE(TAG, "No QuarkLink credentials stored, using default (%s)", QUARKLINK_DEFAULT_ENDPOINT);
-        //     strcpy(quarklink.endpoint, QUARKLINK_DEFAULT_ENDPOINT);
-        //     strcpy(quarklink.rootCert, QUARKLINK_DEFAULT_ROOTCA);
-        //     quarklink.port = 6000;
-        // }
     }
 
-    ESP_LOGI(TAG, "Successfully loaded QuarkLink details for: %s", quarklink.endpoint);
+    // Print instance without the "iot" subdomain
+    ESP_LOGI(TAG, "Successfully loaded QuarkLink details for: %.*s%s",
+       (int)(strchr(quarklink.endpoint, '.') - quarklink.endpoint),     // instance basename
+       quarklink.endpoint,
+       strchr(strchr(quarklink.endpoint, '.') + 1, '.'));               // ".quarklink.io"
+    // ESP_LOGI(TAG, "Successfully loaded QuarkLink details for: %s", quarklink.endpoint);
     ESP_LOGI(TAG, "Device ID: %s", quarklink.deviceID);
 
     wifi_init_sta();

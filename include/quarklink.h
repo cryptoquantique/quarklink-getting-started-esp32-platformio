@@ -93,15 +93,6 @@ typedef struct quarklink_context_t {
     /** Device certificate, obtained when enrolling with QuarkLink via \ref quarklink_enrol() */
     char deviceCert[QUARKLINK_MAX_LONG_CERT_LENGTH];
 
-    /** DBS token, obtained when enrolling with QuarkLink Database Direct */
-    char token[QUARKLINK_MAX_TOKEN_LENGTH];
-    /** DBS URI, obtained when enrolling with QuarkLink Database Direct */
-    char uri[QUARKLINK_MAX_URI_LENGTH];
-    /** DBS Database, obtained when enrolling with QuarkLink Database Direct */
-    char database[QUARKLINK_MAX_SHORT_DATA_LENGTH];
-    /** DBS DataSource, obtained when enrolling with QuarkLink Database Direct */
-    char dataSource[QUARKLINK_MAX_SHORT_DATA_LENGTH];
-
     /** IoT Hub root certificate, obtained after enrolling with QuarkLink */
     char iotHubRootCert[QUARKLINK_MAX_LONG_CERT_LENGTH];
     /** IoT Hub endpoint, obtained after enrolling with Quarklink */
@@ -116,10 +107,9 @@ typedef struct quarklink_context_t {
 
 } quarklink_context_t;
 
-// TODO Do we even need get functions now?
-// Leaving them in for future purposes. They do still work anyway, it is just easier 
-// for a user to access the struct members directly 
-// (although not as safe as there's no check they've been initialised).
+// Made the quarklink_context structure visible.
+// Leaving getter functions in for future purposes, although it is now easier for a user 
+// to access the struct members directly (although not as safe as there's no check they've been initialised).
 
 
 /**
@@ -128,12 +118,11 @@ typedef struct quarklink_context_t {
  * \note 		This function needs to be called before any other QuarkLink API. 
  * \param[in,out] quarklink the QuarkLink context to initialise. \note This structure is erased before initialisation.
  * \param[in] 	endpoint    the name of the QuarkLink instance (e.g. cryptoquantique.quarklink.io)
- * \param[in] 	port        the port for the QuarkLink instance connection (normally 6000)
  * \param[in] 	rootCert    the root certificate for the QuarkLink instance
  * \retval      QUARKLINK_SUCCESS for success
  * \retval      Others for error
  */
-quarklink_return_t quarklink_init(quarklink_context_t *quarklink, const char* endpoint, uint16_t port, const char* rootCert);
+quarklink_return_t quarklink_init(quarklink_context_t *quarklink, const char* endpoint, const char* rootCert);
 
 /**
  * \brief     	Enrol with Quarklink to provision and get credentials.
@@ -337,7 +326,7 @@ quarklink_return_t quarklink_setRootCert(quarklink_context_t *quarklink, const c
  * \note    
  * \param[in,out]   quarklink the QuarkLink context, make sure to initialise it with \ref quarklink_init() first
  * \param[in]       endpoint  the new root certificate
- * \param[in]       port      the new port
+ * \param[in]       port      the new port (default is 443)
  * \retval QUARKLINK_SUCCESS
  * \retval QUARKLINK_INVALID_PARAMETER
  */
